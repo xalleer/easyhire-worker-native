@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Button, StyleSheet, Text, View } from 'react-native';
 
-export default function HomeScreen() {
+export default function AccountScreen() {
   const handleLogout = () => {
     // Тут додайте логіку виходу (очистити токени тощо)
     router.replace('/(auth)/login');

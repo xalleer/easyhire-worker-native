@@ -6,6 +6,7 @@ import {
   Text,
   TouchableWithoutFeedback,
   View,
+  Alert,
 } from 'react-native';
 import colors from '@/theme/colors';
 import typography from '@/theme/typography';
@@ -19,6 +20,7 @@ import { City, CitiesService } from '@/services/CitiesService';
 import InputPhoneUi from "@/components/ui/InputPhoneUi";
 import SocialLogin from "@/components/SocialLogin";
 import { PhoneInputRef } from 'rn-phone-input-field';
+import * as Location from 'expo-location';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -30,6 +32,9 @@ export default function RegisterScreen() {
   const [next, setNext] = useState(false);
   const [isFocusedCity, setIsFocusedCity] = useState(false);
   const [countryCode, setCountryCode] = useState('');
+  const [validCities, setValidCities] = useState<string[]>([]);
+  const [isCityFromList, setIsCityFromList] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   // Error states
   const [nameError, setNameError] = useState('');
@@ -59,8 +64,11 @@ export default function RegisterScreen() {
   const handleCityChange = (val: string) => {
     setCity(val);
     setCityError('');
+    setIsCityFromList(false);
     citiesService.searchCities(val, (fetchedCities) => {
       setCities(fetchedCities);
+      const cityNames = fetchedCities.map(city => `${city.name}${city.region ? ` (${city.region})` : ''}`);
+      setValidCities(cityNames);
     });
   };
 
@@ -68,6 +76,7 @@ export default function RegisterScreen() {
     setCity(selectedCity);
     setCities([]);
     setCityError('');
+    setIsCityFromList(true);
   };
 
   const handlePhoneChange = (val: string) => {
@@ -123,9 +132,61 @@ export default function RegisterScreen() {
     if (!city.trim()) {
       setCityError('Оберіть місто або село');
       valid = false;
+    } else if (!isCityFromList && !validCities.includes(city)) {
+      setCityError('Оберіть місто зі списку');
+      valid = false;
     }
 
     return valid;
+  };
+
+  const getCurrentLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Помилка', 'Дозвіл на використання геолокації відхилено');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+
+      // Отримуємо адресу за координатами
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseGeocode.length > 0) {
+        const address = reverseGeocode[0];
+        const cityName = address.city || address.subregion || address.region;
+
+        if (cityName) {
+          // Шукаємо місто в API Nova Poshta
+          const fetchedCities = await citiesService.getCities(cityName);
+          if (fetchedCities.length > 0) {
+            const foundCity = fetchedCities[0];
+            const cityDisplayName = `${foundCity.name}${foundCity.region ? ` (${foundCity.region})` : ''}`;
+            setCity(cityDisplayName);
+            setIsCityFromList(true);
+            setCityError('');
+          } else {
+            Alert.alert('Увага', `Місто "${cityName}" не знайдено в базі. Оберіть місто зі списку.`);
+          }
+        } else {
+          Alert.alert('Помилка', 'Не вдалося визначити місто за вашим місцезнаходженням');
+        }
+      }
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      Alert.alert('Помилка', 'Не вдалося визначити місцезнаходження');
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   const handleNextStep = () => {
@@ -239,19 +300,26 @@ export default function RegisterScreen() {
                       onChangeText={handleCityChange}
                       onSelect={handleCitySelect}
                       onFocus={() => setIsFocusedCity(true)}
-                      onBlur={() => setIsFocusedCity(false)}
+                      onBlur={() => {
+                        setIsFocusedCity(false);
+                        // Валідація при втраті фокусу
+                        if (city && !isCityFromList && !validCities.includes(city)) {
+                          setCityError('Оберіть місто зі списку');
+                        }
+                      }}
                   />
                   {cityError ? (
                       <Text style={styles.errorText}>{cityError}</Text>
                   ) : null}
 
                   <ButtonUi
-                      title="Визначити місцезнаходження"
-                      onPress={handleRegister}
+                      title="Моє місцезнаходження"
+                      loading={locationLoading}
+                      disabled={locationLoading}
                       variant={'outline'}
+                      onPress={getCurrentLocation}
                       style={styles.registerButton}
                   />
-
                   <ButtonUi
                       title="Зареєструватися"
                       onPress={handleRegister}

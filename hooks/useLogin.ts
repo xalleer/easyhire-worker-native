@@ -25,7 +25,7 @@ export function useLogin() {
 
       
       setUser(user);
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/tasks');
       
     } catch (e: any) {
       setError(e.message);

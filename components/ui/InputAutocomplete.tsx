@@ -39,11 +39,13 @@ const InputAutocomplete: React.FC<InputAutocompleteProps> = ({
                                                                  onBlur
                                                              }) => {
     const [filteredData, setFilteredData] = useState<string[]>([]);
+    const [showList, setShowList] = useState(false);
 
     const handleChange = (text: string) => {
         onChangeText?.(text);
         if (text.length === 0) {
             setFilteredData([]);
+            setShowList(false);
             return;
         }
 
@@ -51,11 +53,27 @@ const InputAutocomplete: React.FC<InputAutocompleteProps> = ({
             item.toLowerCase().includes(text.toLowerCase())
         );
         setFilteredData(filtered);
+        setShowList(filtered.length > 0);
     };
 
     const handleSelect = (item: string) => {
         onSelect?.(item);
         setFilteredData([]);
+        setShowList(false);
+    };
+
+    const handleFocus = () => {
+        onFocus?.();
+        if (value && filteredData.length > 0) {
+            setShowList(true);
+        }
+    };
+
+    const handleBlur = () => {
+        setTimeout(() => {
+            setShowList(false);
+            onBlur?.();
+        }, 150);
     };
 
     return (
@@ -65,11 +83,11 @@ const InputAutocomplete: React.FC<InputAutocompleteProps> = ({
                 placeholder={placeholder}
                 placeholderTextColor={colors.chipSecondary}
                 value={value}
-                onFocus={onFocus}
-                onBlur={onBlur}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
                 onChangeText={handleChange}
             />
-            {filteredData.length > 0 && (
+            {showList && filteredData.length > 0 && (
                 <FlatList
                     style={[styles.list, listStyle]}
                     data={filteredData}

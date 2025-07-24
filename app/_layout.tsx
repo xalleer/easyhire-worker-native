@@ -15,7 +15,7 @@ export default function RootLayout() {
 
   return (
     <View style={styles.container}>
-     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
+     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1}}>
        <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />

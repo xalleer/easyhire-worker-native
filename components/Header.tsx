@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingLeft: 24,
     paddingRight: 24,
+    height: 45
   },
   side: {
     width: 42, 
