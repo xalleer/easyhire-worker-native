@@ -1,17 +1,54 @@
 import { router } from 'expo-router';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import {ActivityIndicator, Button, Pressable, StyleSheet, Text, View} from 'react-native';
+import AvatarUi from "@/components/ui/AvatarUi";
+import colors from "@/theme/colors";
+import typography from "@/theme/typography";
+
+import {listItems} from "@/constants/accountItems";
+import AccountListItem from "@/components/AccountListItem";
+import {useEffect, useState} from "react";
+import {useUserStore} from "@/store/userStore";
+import {getMeApi} from "@/api/user";
 
 export default function AccountScreen() {
-  const handleLogout = () => {
-    // Тут додайте логіку виходу (очистити токени тощо)
-    router.replace('/(auth)/login');
-  };
+  const [loading, setLoading] = useState(true);
+  const { user, setUser } = useUserStore();
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getMeApi();
+        setUser(data);
+      } catch (err) {
+        console.error('Error loading user', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  if (loading) return <ActivityIndicator />;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.greeting}>Привіт, Hello</Text>
-      <Text style={styles.token}>Token: test</Text>
-      <Button title="Вийти" onPress={handleLogout} />
+      <View style={{ alignItems: 'center' }}>
+        {/*// TODO: add avatar*/}
+        <AvatarUi  name={user?.name} size={128}></AvatarUi>
+        <Text style={[typography.title, { marginTop: 24 }]}>{ user?.name}</Text>
+        <Text style={[typography.subtitle, { marginTop: 8 }]}>{ user?.phone}</Text>
+        <Text style={[typography.subtitle, { marginTop: 4 }]}>{ user?.email}</Text>
+      </View>
+
+
+      <View style={styles.list}>
+
+        {listItems.map((item, index) => (
+            <AccountListItem key={index} {...item} />
+        ))}
+
+      </View>
     </View>
   );
 }
@@ -19,14 +56,15 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    backgroundColor: colors.background
   },
-  greeting: {
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  token: {
-    fontSize: 16,
-    marginBottom: 20,
-  },
+  list: {
+    gap: 16,
+    marginTop: 50,
+    width: '100%',
+  }
+
 });

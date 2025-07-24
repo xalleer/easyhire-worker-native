@@ -10,14 +10,15 @@ export default function TabsLayout() {
     return (
         <Tabs
             screenOptions={{
+
                 tabBarStyle: {
+                    position: 'absolute',
                     width: '90%',
+                    bottom: 30,
+                    marginHorizontal: 24,
                     backgroundColor: '#fff',
-                    marginBottom: 30,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
                     borderRadius: 30,
                     borderStyle: 'solid',
                     borderWidth: 1,

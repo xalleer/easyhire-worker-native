@@ -1,8 +1,8 @@
-// app/index.tsx
 import { Redirect } from 'expo-router';
+import {useAuthStore} from "@/store/authStore";
 
 export default function Index() {
-  const isAuthenticated = false; 
+  const isAuthenticated = useAuthStore((s) => s.token);
   
   if (isAuthenticated) {
     return <Redirect href="/(tabs)/tasks" />;

@@ -1,5 +1,5 @@
-import { useUserStore } from '@/store/userStore';
 import axios from 'axios';
+import {useAuthStore} from "@/store/authStore";
 const api = axios.create({
   baseURL: 'https://easy-hire-backend.onrender.com/api', 
   headers: {
@@ -9,7 +9,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
-    const token = useUserStore.getState().token;
+    const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

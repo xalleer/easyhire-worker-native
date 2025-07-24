@@ -1,16 +1,17 @@
 import { loginApi } from '@/api/auth';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { useUserStore } from '../store/userStore';
-
+import { useAuthStore } from '@/store/authStore';
+import { useUserStore } from '@/store/userStore';
 
 interface LoginInput {
-  phone?: string
+  phone?: string;
   email?: string;
   password: string;
 }
 
 export function useLogin() {
+  const setToken = useAuthStore((s) => s.setToken);
   const setUser = useUserStore((s) => s.setUser);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,18 +21,17 @@ export function useLogin() {
       setLoading(true);
       setError(null);
 
-      const user = await loginApi(data);
-      console.log(user);
+      const res = await loginApi(data);
+      console.log(res);
 
-      
+      const { token, user } = res;
+      setToken(token);
       setUser(user);
+
       router.replace('/(tabs)/tasks');
-      
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Login failed');
       console.log(e);
-      console.log(data);
-      
     } finally {
       setLoading(false);
     }
