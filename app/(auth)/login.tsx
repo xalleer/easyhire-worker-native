@@ -18,6 +18,7 @@ import {
 import { PhoneInputRef } from 'rn-phone-input-field';
 import IconApple from "@/assets/icons/IconApple";
 import IconGoogle from "@/assets/icons/IconGoogle";
+import SocialLogin from "@/components/SocialLogin";
 
 
 export default function LoginScreen() {
@@ -182,13 +183,7 @@ export default function LoginScreen() {
           <ButtonUi title="Login" disabled={loading} loading={loading} onPress={handleLogin} variant="fill" />
         </View>
 
-        <View style={styles.socialContainer}>
-          <Text>Sign In With</Text>
-          <View style={styles.socialIcons}>
-            <IconApple/>
-            <IconGoogle/>
-          </View>
-        </View>
+       <SocialLogin/>
         <Text style={{ marginTop: 24, textAlign: 'center' }}>Not Registered Yet? <Text onPress={() => router.push('/(auth)/register')} style={styles.buttonLink}>Sign Up</Text></Text>
       </View>
     </TouchableWithoutFeedback>
@@ -226,18 +221,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 12,
   },
-  socialContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 30,
-    marginTop: 32,
-  },
-  socialIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 30,
-  },
+
   buttonLink: {
     color: colors.lightGreen,
   }

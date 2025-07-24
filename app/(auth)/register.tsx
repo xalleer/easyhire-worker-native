@@ -10,39 +10,55 @@ import {
 import colors from '@/theme/colors';
 import typography from '@/theme/typography';
 import InputUi from '@/components/ui/InputUi';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ButtonUi from '@/components/ui/ButtonUi';
 import IconApple from '@/assets/icons/IconApple';
 import IconGoogle from '@/assets/icons/IconGoogle';
 import InputAutocomplete from '@/components/ui/InputAutocomplete';
 import { City, CitiesService } from '@/services/CitiesService';
 import InputPhoneUi from "@/components/ui/InputPhoneUi";
+import SocialLogin from "@/components/SocialLogin";
+import { PhoneInputRef } from 'rn-phone-input-field';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+380');
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [cities, setCities] = useState<City[]>([]);
   const [next, setNext] = useState(false);
   const [isFocusedCity, setIsFocusedCity] = useState(false);
+  const [countryCode, setCountryCode] = useState('');
+
+  // Error states
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [cityError, setCityError] = useState('');
+
   const citiesService = new CitiesService();
+  const phoneInputRef = useRef<PhoneInputRef>(null);
 
   const handleEmailChange = (val: string) => {
     setEmail(val);
+    setEmailError('');
   };
 
   const handlePasswordChange = (val: string) => {
     setPassword(val);
+    setPasswordError('');
   };
 
   const handleNameChange = (val: string) => {
     setName(val);
+    setNameError('');
   };
 
   const handleCityChange = (val: string) => {
     setCity(val);
+    setCityError('');
     citiesService.searchCities(val, (fetchedCities) => {
       setCities(fetchedCities);
     });
@@ -51,24 +67,82 @@ export default function RegisterScreen() {
   const handleCitySelect = (selectedCity: string) => {
     setCity(selectedCity);
     setCities([]);
+    setCityError('');
   };
 
   const handlePhoneChange = (val: string) => {
     setPhone(val);
+    setPhoneError('');
+  };
+
+  const validateFirstStep = (): boolean => {
+    let valid = true;
+
+    // Name validation
+    if (!name.trim()) {
+      setNameError('Введіть ім\'я');
+      valid = false;
+    } else if (name.trim().length < 2) {
+      setNameError('Ім\'я має містити щонайменше 2 символи');
+      valid = false;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      setEmailError('Введіть електронну пошту');
+      valid = false;
+    } else if (!emailRegex.test(email)) {
+      setEmailError('Введіть коректну електронну пошту');
+      valid = false;
+    }
+
+    // Password validation
+    if (!password) {
+      setPasswordError('Введіть пароль');
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Пароль має містити щонайменше 6 символів');
+      valid = false;
+    }
+
+    return valid;
+  };
+
+  const validateSecondStep = (): boolean => {
+    let valid = true;
+
+    // Phone validation
+    const isValidPhone = phoneInputRef.current?.isValidNumber(phone);
+    if (!isValidPhone) {
+      setPhoneError('Невірний номер телефону');
+      valid = false;
+    }
+
+    // City validation
+    if (!city.trim()) {
+      setCityError('Оберіть місто або село');
+      valid = false;
+    }
+
+    return valid;
   };
 
   const handleNextStep = () => {
-    // Basic validation
-    if (!name || !email || !password) {
-      console.log('Please fill all fields');
+    if (!validateFirstStep()) {
       return;
     }
     setNext(true);
   };
 
   const handleRegister = () => {
-    // Implement registration logic here
-    console.log('Registering with:', { name, email, password, city });
+    if (!validateSecondStep()) {
+      return;
+    }
+
+    // Registration logic
+    const phoneNumber = countryCode ? `${countryCode}${phone}` : `+380${phone}`;
+    console.log('Registering with:', { name, email, password, phone: phoneNumber, city });
     // Example: Send data to your backend
   };
 
@@ -91,28 +165,34 @@ export default function RegisterScreen() {
                       placeholder="Введіть ім'я"
                       type="text"
                   />
+                  {nameError ? (
+                      <Text style={styles.errorText}>{nameError}</Text>
+                  ) : null}
+
                   <InputUi
                       value={email}
                       onChangeText={handleEmailChange}
                       placeholder="Введіть пошту"
                       type="email"
                   />
+                  {emailError ? (
+                      <Text style={styles.errorText}>{emailError}</Text>
+                  ) : null}
+
                   <InputUi
                       value={password}
                       onChangeText={handlePasswordChange}
                       placeholder="Введіть пароль"
                       type="password"
                   />
+                  {passwordError ? (
+                      <Text style={styles.errorText}>{passwordError}</Text>
+                  ) : null}
+
                   <ButtonUi title="Далі" onPress={handleNextStep} />
                 </View>
 
-                <View style={styles.socialContainer}>
-                  <Text style={typography.subtitle}>Sign In With</Text>
-                  <View style={styles.socialIcons}>
-                    <IconApple />
-                    <IconGoogle />
-                  </View>
-                </View>
+                <SocialLogin/>
               </>
           ) : (
               <>
@@ -130,8 +210,19 @@ export default function RegisterScreen() {
                     </View>
                   </View>
 
-                  <InputPhoneUi value={city} onChangeText={handlePhoneChange} />
-
+                  <InputPhoneUi
+                      ref={phoneInputRef}
+                      value={phone}
+                      onChangeText={handlePhoneChange}
+                      placeholder="Введіть номер телефону"
+                      defaultCountry="UA"
+                      onSelectCountryCode={(country) =>
+                          setCountryCode(`+${country.callingCode}`)
+                      }
+                  />
+                  {phoneError ? (
+                      <Text style={styles.errorText}>{phoneError}</Text>
+                  ) : null}
 
                   <InputAutocomplete
                       data={cities.map(city => `${city.name}${city.region ? ` (${city.region})` : ''}`)}
@@ -149,6 +240,16 @@ export default function RegisterScreen() {
                       onSelect={handleCitySelect}
                       onFocus={() => setIsFocusedCity(true)}
                       onBlur={() => setIsFocusedCity(false)}
+                  />
+                  {cityError ? (
+                      <Text style={styles.errorText}>{cityError}</Text>
+                  ) : null}
+
+                  <ButtonUi
+                      title="Визначити місцезнаходження"
+                      onPress={handleRegister}
+                      variant={'outline'}
+                      style={styles.registerButton}
                   />
 
                   <ButtonUi
@@ -258,5 +359,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     color: colors.black,
+  },
+  errorText: {
+    color: 'red',
+    marginTop: -12,
+    marginBottom: 8,
+    marginLeft: 4,
+    fontSize: 12,
   },
 });
