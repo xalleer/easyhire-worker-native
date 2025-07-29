@@ -1,3 +1,5 @@
+import {User} from "@/models/user.model";
+
 export interface LoginRequest {
     email?: string;
     password: string;
@@ -8,15 +10,7 @@ export interface LoginRequest {
 export interface LoginResponse {
     token: string;
     fcmToken?: string;
-    user: {
-        id: string;
-        email: string;
-        phone?: string;
-        name?: string;
-        role: string;
-        city?: string;
-        avatar?: string;
-    };
+    user: User
 }
 
 export interface RegisterRequest {
@@ -25,6 +19,6 @@ export interface RegisterRequest {
     password: string;
     phone: string;
     name: string;
-    city: string;
+    cities: string[];
     avatar?: string;
 }

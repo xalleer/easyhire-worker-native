@@ -10,6 +10,12 @@ export interface User {
     phone?: string;
     name?: string;
     role: string;
-    city?: string;
+    cities?: string[];
     avatar?: string;
+    status?: string;
+    rating?: number;
+}
+
+export interface ChangeStatusRequest {
+    status: 'online' | 'offline'
 }
