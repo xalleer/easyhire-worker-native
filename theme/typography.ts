@@ -26,7 +26,26 @@ const typography = {
     color: colors.black,
     fontFamily: 'Inter_600SemiBold',
     lineHeight: 16,
-  }
+  },
+  transactionMinus: {
+    color: colors.red,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    lineHeight: 16,
+  },
+  transactionPlus: {
+    color: colors.lightGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    lineHeight: 16,
+  },
+  transactionWithdraw: {
+    color: colors.yellow,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    lineHeight: 16,
+  },
+
 };
 
 export default typography;

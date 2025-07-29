@@ -9,6 +9,7 @@ const colors = {
   white: '#FFFFFF',
   black: '#000000',
   background: '#ffffff',
+  red: '#EE6B8D'
 };
 
 export default colors;
