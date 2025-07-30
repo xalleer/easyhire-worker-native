@@ -9,11 +9,13 @@ import ToggleUi from "@/components/ui/ToggleUi";
 import {useEffect} from "react";
 import {acceptTaskApi, getTasksByCityApi} from "@/api/task";
 import { useTaskStore } from "@/store/taskStore";
+import {useAuthStore} from "@/store/authStore";
 import TaskCard from "@/components/TaskCard";
 
 export default function TasksScreen() {
     const {user, setUser} = useUserStore();
     const { availableTasks, setAvailableTasks, setAcceptedTask } = useTaskStore();
+    const token = useAuthStore((state) => state.token);
 
     const handleToggleStatus = async (value: boolean) => {
         try {
@@ -30,15 +32,20 @@ export default function TasksScreen() {
 
     const handleAcceptTask = async (taskId: string) => {
         try {
-            if (!user?.id) return;
+            console.log("Accepting task:", taskId);
+            console.log(user?._id);
+            if (!user?._id) return;
+
 
             const res = await acceptTaskApi(
                 taskId,
-                user.id
+                user._id
             );
 
+            console.log(res)
+
             if (res) {
-                const updatedTasks = availableTasks.filter((task) => task.id !== taskId);
+                const updatedTasks = availableTasks.filter((task) => task._id !== taskId);
                 setAvailableTasks(updatedTasks);
                 setAcceptedTask(res);
             }
@@ -49,22 +56,21 @@ export default function TasksScreen() {
         }
     };
 
+
     useEffect(() => {
+        if (!token || !user?.cities) return;
+
         const fetchTasks = async () => {
-            if (!user?.cities) {
-                console.warn("User city is not defined");
-                return;
-            }
             try {
-                const tasks = await getTasksByCityApi({ city: user.cities[0] });
-                console.log("Fetched tasks:", tasks);
+                const tasks = await getTasksByCityApi({ city: user.cities![0] });
                 setAvailableTasks(tasks);
             } catch (error) {
                 console.error("Failed to fetch tasks:", error);
             }
         };
+
         fetchTasks();
-    }, [user?.cities]);
+    }, [token, user?.cities]);
 
     return (
         <View style={styles.container}>
@@ -89,7 +95,7 @@ export default function TasksScreen() {
             <Text style={[typography.title, { alignSelf: 'flex-start', marginTop: 16, marginBottom: 16, fontSize: 16}]}> Available Tasks</Text>
 
             {availableTasks.map((task) => (
-                <TaskCard onAccept={() => handleAcceptTask(task.id)} key={task.id} task={task} />
+                <TaskCard onAccept={() => handleAcceptTask(task._id)} key={task._id} task={task} />
             ))}
 
         </View>

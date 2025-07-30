@@ -5,7 +5,7 @@ export interface UserResponse {
 }
 
 export interface User {
-    id: string;
+    _id: string;
     email: string;
     phone?: string;
     name?: string;

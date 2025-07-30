@@ -8,14 +8,15 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  async (config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
+    async (config) => {
+        const token = useAuthStore.getState().token;
+        console.log('Auth token in interceptor:', token);
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
 );
 
 export default api;
