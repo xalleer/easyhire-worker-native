@@ -6,7 +6,7 @@ interface TaskStore<T = Task> {
     availableTasks: T[];
     acceptedTask: T | null;
     setAvailableTasks: (tasks: T[]) => void;
-    setAcceptedTask: (task: T) => void;
+    setAcceptedTask: (task: T | null) => void;
 }
 
 export const useTaskStore = create<TaskStore<Task>>((set) => ({

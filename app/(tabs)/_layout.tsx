@@ -48,7 +48,7 @@ export default function TabsLayout() {
             }}
         >
             <Tabs.Screen
-                name="account"
+                name="(account)"
                 options={{
                     title: 'Профіль',
                     tabBarIcon: ({ focused }) => (

@@ -10,10 +10,11 @@ import {Task} from "@/models/task.model";
 
 type Props = {
     task: Task;
-    onAccept: () => Promise<void>
+    onAccept?: () => Promise<void>;
+    onCancel?: () => Promise<void>;
 };
 
-export default function TaskCard ({ task, onAccept }: Props) {
+export default function TaskCard ({ task, onAccept, onCancel }: Props) {
     return (
         <>
             <View style={styles.card}>
@@ -41,7 +42,14 @@ export default function TaskCard ({ task, onAccept }: Props) {
                 </View>
 
                 <View style={styles.cardFooter}>
-                    <ButtonUi style={{ width: '50%'}} title={'Accept'} variant={'outline'} onPress={onAccept}/>
+                    {onAccept ?
+                        <ButtonUi style={{ width: '50%'}} title={'Accept'} variant={'outline'} onPress={onAccept}/>
+                     : null
+                    }
+                    {onCancel ?
+                        <ButtonUi style={{ width: '50%'}} title={'Cancel'} variant={'outline'} onPress={onCancel}/>
+                        : null
+                    }
                     <ButtonUi style={{ width: '50%'}} title={'View Detail'} variant={'clear'} onPress={() => {}}/>
                 </View>
             </View>
