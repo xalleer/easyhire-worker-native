@@ -148,7 +148,7 @@ export const registerStep2Config = (
             },
         },
         {
-            name: 'city',
+            name: 'cities',
             type: 'city',
             placeholder: 'Введіть місто або село',
             validation: {

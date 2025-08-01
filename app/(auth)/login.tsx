@@ -20,9 +20,13 @@ export default function LoginScreen() {
   };
 
   return (
-      <AuthScreen
-          config={loginScreenConfig(isEmailSelected, handleToggle, handleLogin, loading)}
-          loading={loading}
-      />
+      <>
+
+        <AuthScreen
+            config={loginScreenConfig(isEmailSelected, handleToggle, handleLogin, loading)}
+            loading={loading}
+        />
+      </>
+
   );
 }

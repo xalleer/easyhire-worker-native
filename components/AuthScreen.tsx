@@ -22,6 +22,7 @@ import { City, CitiesService } from '@/services/CitiesService';
 import colors from '@/theme/colors';
 import typography from '@/theme/typography';
 
+
 export type FieldType =
     | 'text'
     | 'email'

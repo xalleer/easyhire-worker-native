@@ -7,7 +7,7 @@ export interface LoginRequest {
 }
 
 
-export interface LoginResponse {
+export interface AuthResponse {
     token: string;
     fcmToken?: string;
     user: User

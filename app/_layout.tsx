@@ -5,7 +5,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import colors from '@/theme/colors';
 import React from 'react';
 
-
 import {
     useFonts,
     Inter_400Regular,
@@ -13,6 +12,7 @@ import {
     Inter_600SemiBold,
     Inter_700Bold,
 } from '@expo-google-fonts/inter';
+
 
 SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
@@ -33,6 +33,7 @@ export default function RootLayout() {
 
   return (
     <View style={styles.container}>
+
      <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1}}>
        <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
