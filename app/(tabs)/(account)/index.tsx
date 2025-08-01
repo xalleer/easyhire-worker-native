@@ -1,18 +1,20 @@
-import { router } from 'expo-router';
 import {ActivityIndicator, Button, Pressable, StyleSheet, Text, View} from 'react-native';
 import AvatarUi from "@/components/ui/AvatarUi";
 import colors from "@/theme/colors";
 import typography from "@/theme/typography";
 
-import {listItems} from "@/constants/accountItems";
 import AccountListItem from "@/components/AccountListItem";
 import {useEffect, useState} from "react";
 import {useUserStore} from "@/store/userStore";
 import {getMeApi} from "@/api/user";
+import { getListItems } from "@/constants/accountItems";
+import {useLogout} from "@/hooks/useLogout";
 
 export default function AccountScreen() {
     const [loading, setLoading] = useState(true);
     const { user, setUser } = useUserStore();
+    const {logout} = useLogout()
+
 
     useEffect(() => {
         const load = async () => {
@@ -30,6 +32,8 @@ export default function AccountScreen() {
     }, []);
 
     if (loading) return <ActivityIndicator />;
+
+    const listItems = getListItems(logout);
 
     return (
         <View style={styles.container}>

@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
+import {router} from "expo-router";
 
 interface AuthStore {
     token: string | null;
@@ -15,7 +16,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
         set({ token });
     },
     logout: async () => {
+        localStorage.clear();
         await SecureStore.deleteItemAsync('token');
+        router.replace('/(auth)/login')
     },
     loadTokenFromStorage: async () => {
         const token = await SecureStore.getItemAsync('token');
