@@ -1,32 +1,41 @@
 
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Image } from 'react-native';
+import ButtonUi from "@/components/ui/ButtonUi";
+import colors from "@/theme/colors";
+import typography from "@/theme/typography";
 
 export default function WelcomeScreen() {
  
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome</Text>
+        <View style={styles.header}>
+            <Text style={typography.title}>Welcome</Text>
+            <Text style={[{ marginTop: 20 }, typography.subtitle]}>This is the welcome screen.</Text>
+        </View>
 
-        <Text style={{ marginTop: 20 }}>This is the welcome screen.</Text>
 
-        <Pressable onPress={() => router.push('/(auth)/login')}>
-            <Text style={{ color: 'blue', marginTop: 20 }}>Go to Login</Text>
-        </Pressable>
+        <Image style={{width: '100%', height: 300}} source={require('@/assets/images/welcome.png')}/>
 
-         <Pressable onPress={() => router.push('/(auth)/register')}>
-            <Text style={{ color: 'blue', marginTop: 20 }}>Go to Register</Text>
-        </Pressable>
+
+        <View style={styles.footer}>
+            <ButtonUi title={'Go to Login'} onPress={() => router.push('/(auth)/login')} />
+            <ButtonUi variant={'outline'} title={'Go to Register'} onPress={() => router.push('/(auth)/register')} />
+        </View>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-
+      paddingTop: 24,
+    paddingHorizontal: 24,
+      backgroundColor: colors.background,
     flex: 1,
-    justifyContent: 'center',
+      gap: 50,
+    justifyContent: 'flex-start',
     
   },
   title: {
@@ -34,4 +43,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+    header: {
+        alignItems: 'center',
+
+    },
+    footer: {
+      position: 'absolute',
+        width: '100%',
+      bottom: 24,
+        left: 24,
+    }
 });

@@ -1,4 +1,4 @@
-import {View, Text, StyleSheet} from "react-native";
+import {View, Text, StyleSheet, ScrollView} from "react-native";
 import colors from "@/theme/colors";
 import IconWalletSecondary from "@/assets/icons/IconWalletSecondary";
 import ButtonUi from "@/components/ui/ButtonUi";
@@ -8,35 +8,108 @@ import IconPercent from "@/assets/icons/IconPercent";
 import IconDeposit from "@/assets/icons/IconDeposit";
 import IconPayForTask from "@/assets/icons/IconPayForTask";
 import IconTransactionWithdraw from "@/assets/icons/IconTransactionWithdraw";
+import {useUserStore} from "@/store/userStore";
+import {formatBalance} from "@/utils/formatBalance";
+import {useEffect, useState} from "react";
+import {getTransactionsApi} from "@/api/transaction";
+import {useTransactionStore} from "@/store/transactionStore";
+import {Transaction, TransactionType} from "@/models/transaction.model";
 export default function BalanceScreen () {
+    const { user } = useUserStore();
+    const {transactions, setTransactions} = useTransactionStore();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<null | string>(null);
+
+    const fetchTransactions = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const res = await getTransactionsApi();
+            if (res && Array.isArray(res)) {
+                setTransactions(res);
+                console.log("Fetched transactions:", res);
+            } else {
+                setError("Invalid transaction data received");
+                console.warn("Invalid response format:", res);
+            }
+        } catch (e) {
+            console.error("Failed to fetch transactions:", e);
+            setError("Failed to load transactions. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTransactions();
+    }, []);
+
+    const getTransactionIcon = (type: TransactionType) => {
+        switch (type) {
+            case "commission":
+                return <IconPercent />;
+            case "deposit_card":
+                return <IconDeposit />;
+            case "deposit_task":
+                return <IconPayForTask />;
+            case "withdraw":
+                return <IconTransactionWithdraw />;
+            default:
+                return null;
+        }
+    };
+
+    const groupTransactionsByDate = (transactions: Transaction[]) => {
+        return transactions.reduce((acc: { [key: string]: Transaction[] }, transaction) => {
+            const date = transaction.date.split(" ")[0];
+            if (!acc[date]) {
+                acc[date] = [];
+            }
+            acc[date].push(transaction);
+            return acc;
+        }, {});
+    };
+
+    const groupedTransactions = groupTransactionsByDate(transactions);
+
+
     return (
-        <View style={styles.container}>
-            <View style={styles.balanceCard}>
-                <Text style={[typography.title, {fontSize: 16}]}>Balance</Text>
-                <View style={styles.balance}>
-                    <IconWalletSecondary/>
-                    <Text style={typography.title}>2 455.25 UAH</Text>
+        <ScrollView>
+            <View style={styles.container}>
+                <View style={styles.balanceCard}>
+                    <Text style={[typography.title, {fontSize: 16}]}>Balance</Text>
+                    <View style={styles.balance}>
+                        <IconWalletSecondary/>
+                        <Text style={typography.title}>{formatBalance(user?.balance)} UAH</Text>
+                    </View>
+                    <View style={styles.buttons}>
+                        <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Withdraw'} variant={'outline'}/>
+                        <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Deposit'} variant={'clear'}/>
+                    </View>
                 </View>
-                <View style={styles.buttons}>
-                    <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Withdraw'} variant={'outline'}/>
-                    <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Deposit'} variant={'clear'}/>
+
+                <View style={styles.transactions}>
+                    <Text style={[typography.title, {fontSize: 16}]}>Transactions</Text>
+                    <Text style={typography.subtitle}>July 14, 2022</Text>
+
+                    <View style={{gap: 24}}>
+                        {transactions.map((transaction, index) => (
+                            <TransactionItem
+                                key={index}
+                                icon={getTransactionIcon(transaction.type)}
+                                title={transaction.type}
+                                subtitle={transaction.description!}
+                                amount={transaction.amount}
+                                date={transaction.date}
+                            />
+                        ))}
+                    </View>
+
+
                 </View>
             </View>
 
-            <View style={styles.transactions}>
-                <Text style={[typography.title, {fontSize: 16}]}>Transactions</Text>
-                <Text style={typography.subtitle}>July 14, 2022</Text>
-
-                <View style={{gap: 24}}>
-                    <TransactionItem icon={<IconPercent/>} title={'Commission'} subtitle={'Task: Load car'} amount={-100} date={'12:00'}/>
-                    <TransactionItem icon={<IconDeposit/>} title={'Deposit'} subtitle={'From ATM'} amount={100} date={'12:00'}/>
-                    <TransactionItem icon={<IconPayForTask/>} title={'Salary'} subtitle={'Salary for Task'} amount={100.50} date={'13:00'}/>
-                    <TransactionItem icon={<IconTransactionWithdraw/>} title={'Withdraw'} subtitle={'Salary for Task'} amount={-100.50} date={'13:00'}/>
-                </View>
-
-
-            </View>
-        </View>
+        </ScrollView>
     );
 }
 

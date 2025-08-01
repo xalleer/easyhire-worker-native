@@ -14,6 +14,7 @@ export interface User {
     avatar?: string;
     status?: string;
     rating?: number;
+    balance?: number;
     acceptedTask?: string;
 }
 

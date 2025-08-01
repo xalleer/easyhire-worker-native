@@ -1,9 +1,11 @@
-import { Text, View, StyleSheet } from "react-native";
+import {StyleSheet, Text, View} from "react-native";
 import typography from "@/theme/typography";
+import {TransactionType} from "@/models/transaction.model";
+import {formatDateToTime} from "@/utils/formatDateToTime";
 
 type Props = {
     icon: React.ReactNode;
-    title: 'Deposit' | 'Withdraw' | 'Salary' | 'Commission';
+    title: TransactionType;
     subtitle: string;
     amount: number;
     date: string;
@@ -13,9 +15,9 @@ export default function TransactionItem({ icon, title, subtitle, amount, date }:
     const formattedAmount = `${amount < 0 ? '-' : '+'}$${Math.abs(amount).toFixed(2)}`;
 
     let amountStyle = typography.transactionPlus;
-    if (title === 'Commission') {
+    if (title === TransactionType.COMMISSION) {
         amountStyle = typography.transactionMinus;
-    } else if (title === 'Withdraw') {
+    } else if (title === TransactionType.WITHDRAW) {
         amountStyle = typography.transactionWithdraw;
     }
 
@@ -31,7 +33,7 @@ export default function TransactionItem({ icon, title, subtitle, amount, date }:
 
             <View style={styles.transactionAmount}>
                 <Text style={amountStyle}>{formattedAmount}</Text>
-                <Text style={typography.subtitle}>{date}</Text>
+                <Text style={typography.subtitle}>{formatDateToTime(date)}</Text>
             </View>
         </View>
     );
