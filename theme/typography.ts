@@ -14,8 +14,8 @@ const typography = {
   },
   subheading: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#444',
+    fontFamily: 'Inter_600SemiBold',
+    color: '#868D95',
   },
   body: {
     fontSize: 16,

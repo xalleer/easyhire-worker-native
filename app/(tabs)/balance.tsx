@@ -1,19 +1,19 @@
-import {View, Text, StyleSheet, ScrollView} from "react-native";
-import colors from "@/theme/colors";
-import IconWalletSecondary from "@/assets/icons/IconWalletSecondary";
-import ButtonUi from "@/components/ui/ButtonUi";
-import typography from "@/theme/typography";
-import TransactionItem from "@/components/TransactionItem";
-import IconPercent from "@/assets/icons/IconPercent";
+import { getTransactionsApi } from "@/api/transaction";
 import IconDeposit from "@/assets/icons/IconDeposit";
 import IconPayForTask from "@/assets/icons/IconPayForTask";
+import IconPercent from "@/assets/icons/IconPercent";
 import IconTransactionWithdraw from "@/assets/icons/IconTransactionWithdraw";
-import {useUserStore} from "@/store/userStore";
-import {formatBalance} from "@/utils/formatBalance";
-import {useEffect, useState} from "react";
-import {getTransactionsApi} from "@/api/transaction";
-import {useTransactionStore} from "@/store/transactionStore";
-import {Transaction, TransactionType} from "@/models/transaction.model";
+import IconWalletSecondary from "@/assets/icons/IconWalletSecondary";
+import TransactionItem from "@/components/TransactionItem";
+import ButtonUi from "@/components/ui/ButtonUi";
+import { Transaction, TransactionType } from "@/models/transaction.model";
+import { useTransactionStore } from "@/store/transactionStore";
+import { useUserStore } from "@/store/userStore";
+import colors from "@/theme/colors";
+import typography from "@/theme/typography";
+import { formatBalance } from "@/utils/formatBalance";
+import { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 export default function BalanceScreen () {
     const { user } = useUserStore();
     const {transactions, setTransactions} = useTransactionStore();
@@ -74,7 +74,7 @@ export default function BalanceScreen () {
 
 
     return (
-        <ScrollView>
+        <ScrollView >
             <View style={styles.container}>
                 <View style={styles.balanceCard}>
                     <Text style={[typography.title, {fontSize: 16}]}>Balance</Text>
@@ -92,7 +92,7 @@ export default function BalanceScreen () {
                     <Text style={[typography.title, {fontSize: 16}]}>Transactions</Text>
                     <Text style={typography.subtitle}>July 14, 2022</Text>
 
-                    <View style={{gap: 24}}>
+                    <View style={{gap: 24, width: '100%'}}>
                         {transactions.map((transaction, index) => (
                             <TransactionItem
                                 key={index}
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingTop: 16,
         paddingHorizontal: 24,
+        paddingBottom: 100,
         alignItems: 'center',
         justifyContent: 'flex-start',
         backgroundColor: colors.background,
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
     transactions: {
         marginTop: 24,
         width: '100%',
-        gap: 16
+        gap: 16,
 
     },
 

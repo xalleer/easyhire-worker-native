@@ -1,7 +1,7 @@
-import {StyleSheet, Text, View} from "react-native";
+import { TransactionType } from "@/models/transaction.model";
 import typography from "@/theme/typography";
-import {TransactionType} from "@/models/transaction.model";
-import {formatDateToTime} from "@/utils/formatDateToTime";
+import { formatDateToTime } from "@/utils/formatDateToTime";
+import { StyleSheet, Text, View } from "react-native";
 
 type Props = {
     icon: React.ReactNode;
@@ -27,7 +27,7 @@ export default function TransactionItem({ icon, title, subtitle, amount, date }:
                 {icon}
                 <View style={{ marginLeft: 16 }}>
                     <Text style={[typography.title, { fontSize: 16 }]}>{title}</Text>
-                    <Text style={typography.subtitle}>{subtitle}</Text>
+                    <Text style={[typography.subtitle]}>{subtitle}</Text>
                 </View>
             </View>
 
@@ -44,12 +44,14 @@ const styles = StyleSheet.create({
         width: '100%',
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
         justifyContent: 'space-between',
         gap: 16,
     },
     leftSection: {
         flexDirection: "row",
         alignItems: "center",
+        width: '70%'
     },
     transactionAmount: {
         alignItems: "flex-end",
