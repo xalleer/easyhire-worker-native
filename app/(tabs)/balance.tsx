@@ -14,6 +14,7 @@ import typography from "@/theme/typography";
 import { formatBalance } from "@/utils/formatBalance";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+
 export default function BalanceScreen () {
     const { user } = useUserStore();
     const {transactions, setTransactions} = useTransactionStore();
@@ -59,6 +60,21 @@ export default function BalanceScreen () {
         }
     };
 
+    const getTransactionTitle = (type: TransactionType) => {
+        switch (type) {
+            case "commission":
+                return "Commission";
+            case "deposit_card":
+                return "Deposit card";
+            case "deposit_task":
+                return "Deposit task";
+            case "withdraw":
+                return "Withdraw";
+            default:
+                return "";
+        }
+    };
+
     const groupTransactionsByDate = (transactions: Transaction[]) => {
         return transactions.reduce((acc: { [key: string]: Transaction[] }, transaction) => {
             const date = transaction.date.split(" ")[0];
@@ -70,8 +86,20 @@ export default function BalanceScreen () {
         }, {});
     };
 
-    const groupedTransactions = groupTransactionsByDate(transactions);
+    const formatDateHeader = (dateString: string) => {
+        // Convert date string to a more readable format
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
 
+    const groupedTransactions = groupTransactionsByDate(transactions);
+    const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
+        new Date(b).getTime() - new Date(a).getTime() // Sort dates in descending order (newest first)
+    );
 
     return (
         <ScrollView >
@@ -90,25 +118,28 @@ export default function BalanceScreen () {
 
                 <View style={styles.transactions}>
                     <Text style={[typography.title, {fontSize: 16}]}>Transactions</Text>
-                    <Text style={typography.subtitle}>July 14, 2022</Text>
-
-                    <View style={{gap: 24, width: '100%'}}>
-                        {transactions.map((transaction, index) => (
-                            <TransactionItem
-                                key={index}
-                                icon={getTransactionIcon(transaction.type)}
-                                title={transaction.type}
-                                subtitle={transaction.description!}
-                                amount={transaction.amount}
-                                date={transaction.date}
-                            />
-                        ))}
-                    </View>
-
-
+                    
+                    {sortedDates.map((date) => (
+                        <View key={date} style={styles.dateGroup}>
+                            <Text style={[typography.subtitle, styles.dateHeader]}>
+                                {formatDateHeader(date)}
+                            </Text>
+                            <View style={styles.transactionsList}>
+                                {groupedTransactions[date].map((transaction, index) => (
+                                    <TransactionItem
+                                        key={`${date}-${index}`}
+                                        icon={getTransactionIcon(transaction.type)}
+                                        title={getTransactionTitle(transaction.type)}
+                                        subtitle={transaction.description!}
+                                        amount={transaction.amount}
+                                        date={transaction.date}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    ))}
                 </View>
             </View>
-
         </ScrollView>
     );
 }
@@ -122,7 +153,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'flex-start',
         backgroundColor: colors.background,
-
     },
     balanceCard: {
         width: '100%',
@@ -144,14 +174,22 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         borderTopWidth: 1,
         borderColor: colors.borderColor,
-
     },
     transactions: {
         marginTop: 24,
         width: '100%',
         gap: 16,
-
     },
-
-
+    dateGroup: {
+        width: '100%',
+        gap: 12,
+    },
+    dateHeader: {
+        marginBottom: 8,
+        color: colors.noteColor,
+    },
+    transactionsList: {
+        gap: 16,
+        width: '100%',
+    },
 });

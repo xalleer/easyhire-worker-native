@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 type Props = {
     icon: React.ReactNode;
-    title: TransactionType;
+    title: string;
     subtitle: string;
     amount: number;
     date: string;
