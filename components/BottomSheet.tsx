@@ -1,12 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import {
+    Animated,
     Dimensions,
+    Keyboard,
+    KeyboardAvoidingView,
     Modal,
+    PanResponder,
+    Platform,
     Pressable,
     StyleSheet,
     View,
-    Animated,
-    PanResponder,
 } from "react-native";
 
 const screenHeight = Dimensions.get("window").height;
@@ -24,7 +27,8 @@ export default function BottomSheet({
                                         children,
                                         height = 350,
                                     }: BottomSheetProps) {
-    const translateY = useRef(new Animated.Value(screenHeight)).current;
+    const translateY = useRef(new Animated.Value(height)).current;
+    const keyboardHeight = useRef(new Animated.Value(0)).current;
 
     const animateTo = (toValue: number, callback?: () => void) => {
         Animated.timing(translateY, {
@@ -39,41 +43,94 @@ export default function BottomSheet({
             onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 10,
             onPanResponderMove: (_, gesture) => {
                 if (gesture.dy > 0) {
-                    translateY.setValue(screenHeight - height + gesture.dy);
+                    translateY.setValue(gesture.dy);
                 }
             },
             onPanResponderRelease: (_, gesture) => {
                 if (gesture.dy > 80) {
-                    animateTo(screenHeight, onClose);
+                    animateTo(height, onClose);
                 } else {
-                    animateTo(screenHeight - height);
+                    animateTo(0);
                 }
             },
         })
     ).current;
 
     useEffect(() => {
+        const keyboardWillShow = (event: any) => {
+            Animated.timing(keyboardHeight, {
+                toValue: event.endCoordinates.height,
+                duration: event.duration || 250,
+                useNativeDriver: false,
+            }).start();
+        };
+
+        const keyboardWillHide = () => {
+            Animated.timing(keyboardHeight, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: false,
+            }).start();
+        };
+
+        const showListener = Platform.OS === 'ios' 
+            ? Keyboard.addListener('keyboardWillShow', keyboardWillShow)
+            : Keyboard.addListener('keyboardDidShow', keyboardWillShow);
+        
+        const hideListener = Platform.OS === 'ios'
+            ? Keyboard.addListener('keyboardWillHide', keyboardWillHide)
+            : Keyboard.addListener('keyboardDidHide', keyboardWillHide);
+
+        return () => {
+            showListener.remove();
+            hideListener.remove();
+        };
+    }, []);
+
+    useEffect(() => {
         if (visible) {
-            animateTo(screenHeight - height);
+            animateTo(0); // Показуємо модалку (0 = видимо)
         } else {
-            animateTo(screenHeight);
+            animateTo(height); // Ховаємо модалку (height = приховано)
         }
-    }, [visible]);
+    }, [visible, height]);
+
+    // Обчислюємо позицію з урахуванням клавіатури
+    const animatedStyle = {
+        bottom: keyboardHeight,
+        transform: [{
+            translateY: translateY
+        }]
+    };
 
     return (
         <Modal visible={visible} transparent animationType="none">
-            <Pressable style={styles.backdrop} onPress={() => animateTo(screenHeight, onClose)} />
-            <Animated.View style={[styles.sheet, { top: translateY, height }]}>
-                <View {...panResponder.panHandlers}>
-                    <View style={styles.dragIndicator} />
-                </View>
-                {children}
-            </Animated.View>
+            <KeyboardAvoidingView 
+                style={styles.container} 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <Pressable 
+                    style={styles.backdrop} 
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        animateTo(height, onClose);
+                    }} 
+                />
+                <Animated.View style={[styles.sheet, { height }, animatedStyle]}>
+                    <View {...panResponder.panHandlers}>
+                        <View style={styles.dragIndicator} />
+                    </View>
+                    {children}
+                </Animated.View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
     backdrop: {
         position: "absolute",
         top: 0,
@@ -86,6 +143,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         left: 0,
         right: 0,
+        bottom: 0,
         backgroundColor: "#fff",
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

@@ -1,27 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Alert,
-    TouchableWithoutFeedback,
-    Keyboard,
-    Image,
-    ScrollView
-} from 'react-native';
-import { PhoneInputRef } from 'rn-phone-input-field';
 import * as Location from 'expo-location';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Image,
+    Keyboard,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableWithoutFeedback,
+    View
+} from 'react-native';
 
-import InputUi from '@/components/ui/InputUi';
-import InputPhoneUi from '@/components/ui/InputPhoneUi';
-import InputAutocomplete from '@/components/ui/InputAutocomplete';
-import ButtonUi from '@/components/ui/ButtonUi';
-import ToggleUi from '@/components/ui/ToggleUi';
 import SocialLogin from '@/components/SocialLogin';
-import { City, CitiesService } from '@/services/CitiesService';
+import ButtonUi from '@/components/ui/ButtonUi';
+import InputAutocomplete from '@/components/ui/InputAutocomplete';
+import InputUi from '@/components/ui/InputUi';
+import PhoneInput, { PhoneInputRef, PhoneInputValue } from '@/components/ui/PhoneInput';
+import ToggleUi from '@/components/ui/ToggleUi';
+import { CitiesService, City } from '@/services/CitiesService';
 import colors from '@/theme/colors';
 import typography from '@/theme/typography';
-
 
 export type FieldType =
     | 'text'
@@ -83,7 +81,6 @@ export interface AuthScreenConfig {
     buttons: ButtonConfig[];
     initialValues?: Record<string, string>;
     onFieldChange?: (fieldName: string, value: string, allValues: Record<string, string>) => void;
-
     toggle?: ToggleConfig;
     avatar?: AvatarConfig;
     showSocialLogin?: boolean;
@@ -106,7 +103,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ config, loading = false }) => {
     const [validCities, setValidCities] = useState<string[]>([]);
     const [isCityFromList, setIsCityFromList] = useState(false);
     const [focusedFields, setFocusedFields] = useState<Record<string, boolean>>({});
-    const [countryCode, setCountryCode] = useState('');
     const [locationLoading, setLocationLoading] = useState(false);
 
     const phoneInputRef = useRef<PhoneInputRef>(null);
@@ -221,17 +217,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ config, loading = false }) => {
         if (shouldValidate && !validateForm()) return;
 
         try {
-            const dataToSubmit = { ...formData };
-
-            const phoneField = config.fields.find(f => f.type === 'phone');
-            if (phoneField && formData[phoneField.name]) {
-                const phoneValue = formData[phoneField.name];
-                dataToSubmit[phoneField.name] = countryCode
-                    ? `${countryCode}${phoneValue}`
-                    : `+380${phoneValue}`;
-            }
-
-            await button.onPress(dataToSubmit);
+            await button.onPress(formData);
         } catch (error) {
             console.error('Form submission error:', error);
         }
@@ -292,15 +278,26 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ config, loading = false }) => {
             case 'phone':
                 return (
                     <View key={field.name}>
-                        <InputPhoneUi
+                        <PhoneInput
                             ref={phoneInputRef}
                             value={value}
-                            onChangeText={(val) => handleFieldChange(field.name, val)}
+                            onChangeText={(fullNumber) => handleFieldChange(field.name, fullNumber)}
+                            onChange={(phoneValue: PhoneInputValue) => {
+                                console.log('Phone data:', phoneValue);
+                            }}
                             placeholder={field.placeholder}
-                            defaultCountry="UA"
-                            onSelectCountryCode={(country) =>
-                                setCountryCode(`+${country.callingCode}`)
-                            }
+                            initialCountryCode="UA"
+                            error={!!error}
+                            inputProps={{
+                                onFocus: () => setFocusedFields(prev => ({ ...prev, [field.name]: true })),
+                                onBlur: () => {
+                                    setFocusedFields(prev => ({ ...prev, [field.name]: false }));
+                                    const fieldError = validateField(field, value);
+                                    if (fieldError) {
+                                        setErrors(prev => ({ ...prev, [field.name]: fieldError }));
+                                    }
+                                }
+                            }}
                             {...field.props}
                         />
                         {error ? <Text style={styles.errorText}>{error}</Text> : null}

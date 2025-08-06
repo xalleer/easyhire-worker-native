@@ -7,8 +7,11 @@ interface InputUiProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
-  type?: 'text' | 'password' | 'email';
+  type?: 'text' | 'password' | 'email' | 'tel';
   style?: object;
+  editable?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const InputUi: React.FC<InputUiProps> = ({
@@ -17,12 +20,25 @@ const InputUi: React.FC<InputUiProps> = ({
   placeholder = '',
   type = 'text',
   style,
+  editable = true,
+  onFocus,
+  onBlur,
 }) => {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
 
   const togglePasswordVisibility = () => {
-    setIsPasswordVisible(!isPasswordVisible);
+    setIsPasswordVisible(prev => !prev);
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    onFocus?.();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    onBlur?.();
   };
 
   return (
@@ -34,20 +50,22 @@ const InputUi: React.FC<InputUiProps> = ({
         placeholder={placeholder}
         placeholderTextColor="#999"
         secureTextEntry={type === 'password' && !isPasswordVisible}
-        autoCapitalize="none"
-        keyboardType={type === 'email' ? 'email-address' : 'default'}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        autoCapitalize={type === 'email' ? 'none' : 'sentences'}
+        keyboardType={type === 'email' ? 'email-address' : type === 'tel' ? 'phone-pad' : 'default'}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        editable={editable}
       />
       {type === 'password' && (
         <TouchableOpacity
           style={styles.iconContainer}
           onPress={togglePasswordVisibility}
+          disabled={!editable}
         >
           <Feather
             name={isPasswordVisible ? 'eye' : 'eye-off'}
             size={18}
-            color="#666"
+            color={editable ? '#666' : '#999'}
           />
         </TouchableOpacity>
       )}
@@ -59,26 +77,25 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.white,
     borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 15,
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
     borderWidth: 1,
-    height: 56,
-    borderColor: '#E0E0E0',
+    borderColor: colors.borderColor,
   },
   focusedContainer: {
-    borderColor: '#4CAF50', // Green border on focus
+    borderColor: colors.lightGreen,
     borderWidth: 1,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
-    paddingVertical: Platform.OS === 'ios' ? 4 : 0,
+    color: colors.black,
+    paddingVertical: 6,
   },
   iconContainer: {
-    padding: 4,
+    padding: 8,
   },
 });
 

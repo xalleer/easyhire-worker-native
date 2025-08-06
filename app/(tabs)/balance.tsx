@@ -1,11 +1,15 @@
+import { topupWalletApi } from "@/api/payment";
 import { getTransactionsApi } from "@/api/transaction";
 import IconDeposit from "@/assets/icons/IconDeposit";
 import IconPayForTask from "@/assets/icons/IconPayForTask";
 import IconPercent from "@/assets/icons/IconPercent";
 import IconTransactionWithdraw from "@/assets/icons/IconTransactionWithdraw";
 import IconWalletSecondary from "@/assets/icons/IconWalletSecondary";
+import BottomSheet from "@/components/BottomSheet";
+import PaymentModal from "@/components/modals/PaymentModal";
 import TransactionItem from "@/components/TransactionItem";
 import ButtonUi from "@/components/ui/ButtonUi";
+import InputUi from "@/components/ui/InputUi";
 import { Transaction, TransactionType } from "@/models/transaction.model";
 import { useTransactionStore } from "@/store/transactionStore";
 import { useUserStore } from "@/store/userStore";
@@ -20,6 +24,10 @@ export default function BalanceScreen () {
     const {transactions, setTransactions} = useTransactionStore();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<null | string>(null);
+    const [paymentHtml, setPaymentHtml] = useState<string | null>(null);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [isDepositSheetVisible, setDepositSheetVisible] = useState(false);
+    const [depositAmount, setDepositAmount] = useState('200');
 
     const fetchTransactions = async () => {
         try {
@@ -86,8 +94,82 @@ export default function BalanceScreen () {
         }, {});
     };
 
+    const deposit = async (amount: number) => {
+        try {
+            const response = await topupWalletApi(user!._id, {
+                amount: amount,
+                type: "topup",
+            });
+
+            if (response && typeof response.html === "string") {
+                const formHtml = response.html;
+                
+                const dataMatch = formHtml.match(/name="data"\s+value="([^"]+)"/);
+                const signatureMatch = formHtml.match(/name="signature"\s+value="([^"]+)"/);
+                
+                if (dataMatch && signatureMatch) {
+                    const data = dataMatch[1];
+                    const signature = signatureMatch[1];
+                    
+                    console.log('LiqPay data:', data);
+                    console.log('LiqPay signature:', signature);
+                    
+                    const url = `https://www.liqpay.ua/api/3/checkout?data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`;
+                    
+                    setPaymentHtml(`
+                        <html>
+                            <head>
+                                <meta charset="utf-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1">
+                                <title>LiqPay Payment</title>
+                            </head>
+                            <body style="margin: 0; padding: 20px; font-family: system-ui; text-align: center;">
+                                <div style="margin-top: 50px;">
+                                    <h2 style="color: #333;">Оплата через LiqPay</h2>
+                                    <p style="color: #666; margin: 20px 0;">Переходимо до сторінки оплати...</p>
+                                    <div style="margin: 30px 0;">
+                                        <div style="
+                                            width: 40px; 
+                                            height: 40px; 
+                                            border: 4px solid #f3f3f3; 
+                                            border-top: 4px solid #10b981; 
+                                            border-radius: 50%; 
+                                            animation: spin 1s linear infinite;
+                                            margin: 0 auto;
+                                        "></div>
+                                    </div>
+                                </div>
+                                <style>
+                                    @keyframes spin {
+                                        0% { transform: rotate(0deg); }
+                                        100% { transform: rotate(360deg); }
+                                    }
+                                </style>
+                                <script>
+                                    setTimeout(() => {
+                                        window.location.href = "${url}";
+                                    }, 1500);
+                                </script>
+                            </body>
+                        </html>
+                    `);
+                    setShowPaymentModal(true);
+                
+                } else {
+                    console.error("Не вдалося знайти data або signature в HTML формі");
+                    setPaymentHtml(formHtml);
+                    setShowPaymentModal(true);
+                }
+            } else {
+                console.warn("Unexpected response:", response);
+            }
+            setDepositSheetVisible(false);
+        } catch (error) {
+            console.error("Deposit error:", error);
+        }
+    };
+
     const formatDateHeader = (dateString: string) => {
-        // Convert date string to a more readable format
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
@@ -96,13 +178,26 @@ export default function BalanceScreen () {
         });
     };
 
+    const closePaymentModal = () => {
+        setShowPaymentModal(false);
+        setPaymentHtml(null);
+        fetchTransactions();
+    };
+
+    const onWebViewNavigationStateChange = (navState: any) => {
+        if (navState.url.includes('success') || navState.url.includes('callback')) {
+            console.log('Payment completed, URL:', navState.url);
+            setTimeout(closePaymentModal, 2000); 
+        }
+    };
+
     const groupedTransactions = groupTransactionsByDate(transactions);
     const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
-        new Date(b).getTime() - new Date(a).getTime() // Sort dates in descending order (newest first)
+        new Date(b).getTime() - new Date(a).getTime()
     );
 
     return (
-        <ScrollView >
+        <ScrollView>
             <View style={styles.container}>
                 <View style={styles.balanceCard}>
                     <Text style={[typography.title, {fontSize: 16}]}>Balance</Text>
@@ -112,7 +207,7 @@ export default function BalanceScreen () {
                     </View>
                     <View style={styles.buttons}>
                         <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Withdraw'} variant={'outline'}/>
-                        <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Deposit'} variant={'clear'}/>
+                        <ButtonUi onPress={() => setDepositSheetVisible(true)} style={{ width: '50%'}} title={'Deposit'} variant={'clear'}/>
                     </View>
                 </View>
 
@@ -140,6 +235,40 @@ export default function BalanceScreen () {
                     ))}
                 </View>
             </View>
+
+            <BottomSheet
+        visible={isDepositSheetVisible}
+        onClose={() => setDepositSheetVisible(false)}
+        height={250}
+      >
+        <View style={styles.content}>
+          <InputUi
+            value={depositAmount}
+            onChangeText={setDepositAmount}
+            placeholder="Enter deposit amount"
+            type="text"
+            style={{ marginBottom: 20 }}
+          />
+          <ButtonUi
+            title="Поповнити"
+            onPress={() => {
+              const amountNum = Number(depositAmount);
+              if (isNaN(amountNum) || amountNum <= 0) {
+                alert("Введіть коректну суму");
+                return;
+              }
+              deposit(amountNum);
+            }}
+          />
+        </View>
+      </BottomSheet>
+
+        <PaymentModal
+      visible={showPaymentModal}
+      htmlContent={paymentHtml}
+      onClose={closePaymentModal}
+      onNavigationStateChange={onWebViewNavigationStateChange}
+    />
         </ScrollView>
     );
 }
@@ -192,4 +321,27 @@ const styles = StyleSheet.create({
         gap: 16,
         width: '100%',
     },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: colors.white,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.borderColor,
+    },
+    closeButton: {
+        width: 80,
+    },
+    webview: {
+        flex: 1,
+    },
+    content: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
 });

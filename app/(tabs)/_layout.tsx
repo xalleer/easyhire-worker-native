@@ -1,10 +1,10 @@
-import Header from '@/components/Header';
-import { Tabs } from 'expo-router';
+import IconNotifications from "@/assets/icons/IconNotifications";
 import IconProfile from "@/assets/icons/IconProfile";
-import colors from "@/theme/colors";
 import IconTasks from "@/assets/icons/IconTasks";
 import IconWallet from "@/assets/icons/IconWallet";
-import IconNotifications from "@/assets/icons/IconNotifications";
+import Header from '@/components/Header';
+import colors from "@/theme/colors";
+import { Tabs } from 'expo-router';
 
 export default function TabsLayout() {
     return (
@@ -83,6 +83,9 @@ export default function TabsLayout() {
                     ),
                 }}
             />
+
+
+    
         </Tabs>
     );
 }
