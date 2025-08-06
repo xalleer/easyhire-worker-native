@@ -1,12 +1,13 @@
-import { StyleSheet, Text, View } from "react-native";
-import { FontAwesome } from "@expo/vector-icons";
-import ButtonUi from "@/components/ui/ButtonUi";
-import typography from "@/theme/typography";
 import BottomSheet from "@/components/BottomSheet";
+import ButtonUi from "@/components/ui/ButtonUi";
 import { Task } from "@/models/task.model";
+import colors from "@/theme/colors";
+import { FontAwesome } from "@expo/vector-icons";
+import { useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
 interface Props {
-    task: Task;
+    task: Task & { status?: string };
     visible: boolean;
     onClose: () => void;
     onAccept?: () => Promise<void>;
@@ -14,95 +15,281 @@ interface Props {
 }
 
 export default function TaskDetailModal({ task, visible, onClose, onAccept, onCancel }: Props) {
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(20)).current;
+
+    // Entry animation
+    useEffect(() => {
+        if (visible) {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(slideAnim, {
+                    toValue: 0,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        } else {
+            fadeAnim.setValue(0);
+            slideAnim.setValue(20);
+        }
+    }, [visible]);
+
     return (
-        <BottomSheet visible={visible} onClose={onClose} height={520}>
-            <Text style={[typography.title, styles.header]}>{task.title}</Text>
+        <BottomSheet visible={visible} onClose={onClose} height={720}>
+            <Animated.View
+                style={[
+                    styles.content,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                    },
+                ]}
+            >
+                <Text style={styles.header}>{task.title}</Text>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="info-circle" size={18} color="#555" />
-                <Text style={typography.subtitle}>{task.description}</Text>
-            </View>
+                <View style={styles.infoSection}>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 10],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="info-circle" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>{task.description}</Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="tags" size={18} color="#555" />
-                <Text style={typography.subtitle}>{task.category}</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 12],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="tags" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>{task.category}</Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="map-marker" size={18} color="#555" />
-                <Text style={typography.subtitle}>{task.location ?? "No location"}</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 14],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="map-marker" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>{task.location ?? "No location"}</Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="calendar" size={18} color="#555" />
-                <Text style={typography.subtitle}>{new Date(task.startDate).toLocaleString()}</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 16],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="calendar" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>{new Date(task.startDate).toLocaleString('uk-UA')}</Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="credit-card" size={18} color="#555" />
-                <Text style={typography.subtitle}>
-                    {task.paymentMethod === "cash" ? "Cash" : "Card"}
-                </Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 18],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="credit-card" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>
+                            {task.paymentMethod === "cash" ? "Cash" : "Card"}
+                        </Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="users" size={18} color="#555" />
-                <Text style={typography.subtitle}>Workers needed: {task.workersCount}</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 20],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="users" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>Workers needed: {task.workersCount}</Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="truck" size={18} color="#555" />
-                <Text style={typography.subtitle}>
-                    {task.employerProvidesTransport ? "Transport provided" : "No transport"}
-                </Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 22],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="truck" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>
+                            {task.employerProvidesTransport ? "Transport provided" : "No transport"}
+                        </Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="check-circle" size={18} color="#555" />
-                <Text style={typography.subtitle}>Status: {task.status}</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 24],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="check-circle" size={18} color={colors.noteColor} />
+                        <Text style={styles.infoText}>
+                            Status: {task.status
+                                ? task.status.charAt(0).toUpperCase() + task.status.slice(1)
+                                : "Unknown"}
+                        </Text>
+                    </Animated.View>
 
-            <View style={styles.infoRow}>
-                <FontAwesome name="credit-card" size={18} color="#555" />
-                <Text style={[typography.title]}>{task.price} UAH</Text>
-            </View>
+                    <Animated.View
+                        style={[
+                            styles.infoRow,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateX: slideAnim.interpolate({
+                                        inputRange: [0, 20],
+                                        outputRange: [0, 26],
+                                    }),
+                                }],
+                            },
+                        ]}
+                    >
+                        <FontAwesome name="credit-card" size={18} color={colors.noteColor} />
+                        <Text style={styles.priceText}>{task.price} UAH</Text>
+                    </Animated.View>
+                </View>
 
-            <View style={styles.buttonRow}>
-                {onAccept && (
-                    <ButtonUi
-                        style={{ flex: 1 }}
-                        title="Accept"
-                        onPress={onAccept}
-                        variant="outline"
-                    />
-                )}
-                {onCancel && (
-                    <ButtonUi
-                        style={{ flex: 1 }}
-                        title="Cancel"
-                        onPress={onCancel}
-                        variant="clear"
-                    />
-                )}
-            </View>
+                <View style={styles.buttonRow}>
+                    {onAccept && (
+                        <ButtonUi
+                            style={styles.actionButton}
+                            title="Accept"
+                            variant="outline"
+                            onPress={onAccept}
+                        />
+                    )}
+                    {onCancel && (
+                        <ButtonUi
+                            style={styles.actionButton}
+                            title="Cancel"
+                            variant="clear"
+                            onPress={onCancel}
+                        />
+                    )}
+                </View>
+            </Animated.View>
         </BottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
+    content: {
+        flex: 1,
+        paddingHorizontal: 24,
+        paddingTop: 20,
+        gap: 20,
+    },
     header: {
         fontSize: 20,
-        marginBottom: 12,
+        fontWeight: '600',
+        color: colors.black,
+        textAlign: 'center',
+    },
+    infoSection: {
+        gap: 12,
     },
     infoRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.borderColor,
+    },
+    infoText: {
+        fontSize: 16,
+        color: colors.noteColor,
+        flex: 1,
+        lineHeight: 22,
+    },
+    priceText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.black,
     },
     buttonRow: {
-        flexDirection: "row",
-        gap: 12,
+        flexDirection: 'row',
+        gap: 16,
         marginTop: 24,
+        justifyContent: 'space-between',
+    },
+    actionButton: {
+        flex: 1,
     },
 });

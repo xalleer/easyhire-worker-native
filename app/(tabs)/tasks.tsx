@@ -1,108 +1,143 @@
-import {View, Text, StyleSheet, Animated} from "react-native";
-import colors from "@/theme/colors";
-import AvatarUi from "@/components/ui/AvatarUi";
-import {useUserStore} from "@/store/userStore";
-import {changeStatusApi} from "@/api/user";
+import { acceptTaskApi, declineTaskApi, getTasksByCityApi } from "@/api/task";
+import { changeStatusApi } from "@/api/user";
 import IconStatus from "@/assets/icons/IconStatus";
-import typography from "@/theme/typography";
-import ToggleUi from "@/components/ui/ToggleUi";
-import {useCallback, useEffect} from "react";
-import {acceptTaskApi, declineTaskApi, getTasksByCityApi} from "@/api/task";
-import { useTaskStore } from "@/store/taskStore";
-import {useAuthStore} from "@/store/authStore";
 import TaskCard from "@/components/TaskCard";
-import LoadingScreen from "@/components/LoadingScreen";
-import {useFocusEffect} from "expo-router";
+import AvatarUi from "@/components/ui/AvatarUi";
+import ButtonUi from "@/components/ui/ButtonUi";
+import ToggleUi from "@/components/ui/ToggleUi";
 import { useSocket } from '@/hooks/useSocket';
 import socket from "@/services/socket";
+import { useAuthStore } from "@/store/authStore";
+import { useTaskStore } from "@/store/taskStore";
+import { useUserStore } from "@/store/userStore";
+import colors from "@/theme/colors";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Animated, RefreshControl, StyleSheet, Text, View } from "react-native";
 import ScrollView = Animated.ScrollView;
 
 export default function TasksScreen() {
-    const {user, setUser} = useUserStore();
+    const { user, setUser } = useUserStore();
     const { availableTasks, acceptedTask, setAvailableTasks, setAcceptedTask } = useTaskStore();
     const token = useAuthStore((state) => state.token);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<null | string>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
+    const statusScaleAnim = useRef(new Animated.Value(1)).current;
 
     useSocket(user!._id);
+
+    // Entry animation
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
+
+    const fetchTasks = async (showLoader = false) => {
+        if (!token || !user?.cities) return;
+
+        try {
+            if (showLoader) setLoading(true);
+            setError(null);
+            const tasks = await getTasksByCityApi({ city: user.cities[0] });
+            setAvailableTasks(tasks);
+        } catch (error) {
+            console.error("Failed to fetch tasks:", error);
+            setError("Failed to load tasks. Please try again.");
+            Alert.alert('Помилка', 'Не вдалося завантажити завдання');
+        } finally {
+            if (showLoader) setLoading(false);
+        }
+    };
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchTasks();
+            Animated.sequence([
+                Animated.timing(statusScaleAnim, {
+                    toValue: 1.05,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(statusScaleAnim, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        } finally {
+            setRefreshing(false);
+        }
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchTasks(true);
+        }, [token, user?.cities])
+    );
 
     const handleToggleStatus = async (value: boolean) => {
         try {
             const newStatus = value ? 'online' : 'offline';
-
-            console.log('New status:', newStatus);
             const updatedUser = await changeStatusApi({ status: newStatus });
             setUser(updatedUser);
-
         } catch (error) {
             console.error('Failed to change status:', error);
+            Alert.alert('Помилка', 'Не вдалося змінити статус');
         }
     };
 
     const handleAcceptTask = async (taskId: string) => {
         try {
-            console.log("Accepting task:", taskId);
-            console.log(user?._id);
+            
             if (!user?._id) return;
-
-
-            const res = await acceptTaskApi(
-                taskId,
-                user._id
-            );
-
-            console.log(res)
-
+            
+            const res = await acceptTaskApi(taskId, user._id);
             if (res) {
                 const updatedTasks = availableTasks.filter((task) => task._id !== taskId);
                 setAvailableTasks(updatedTasks);
                 setAcceptedTask(res);
             }
-
-            console.log(res);
-        } catch (e) {
-            console.error("Error accepting task:", e);
+        } catch (error) {
+            console.error("Error accepting task:", error);
+            Alert.alert('Помилка', 'Не вдалося прийняти завдання');
         }
     };
 
-    const handleCancelTask = async (taskId: string)  => {
+    const handleCancelTask = async (taskId: string) => {
         try {
             if (!user?._id || !user?.cities) return;
-
             const res = await declineTaskApi(taskId, user._id);
-
             if (res) {
                 setAcceptedTask(null);
-
                 const updatedTasks = await getTasksByCityApi({ city: user.cities[0] });
                 setAvailableTasks(updatedTasks);
             }
-        } catch (e) {
-            console.log(e);
+        } catch (error) {
+            console.error("Error canceling task:", error);
+            Alert.alert('Помилка', 'Не вдалося скасувати завдання');
         }
-    }
-
-
-
-    useFocusEffect(
-        useCallback(() => {
-            if (!token || !user?.cities) return;
-
-            const fetchTasks = async () => {
-                try {
-                    const tasks = await getTasksByCityApi({ city: user.cities![0] });
-                    console.log(tasks);
-                    setAvailableTasks(tasks);
-                } catch (error) {
-                    console.error("Failed to fetch tasks:", error);
-                }
-            };
-
-            fetchTasks();
-        }, [token, user?.cities])
-    );
+    };
 
     useEffect(() => {
         socket.on('newOrder', (data) => {
             console.log('Новий запит:', data);
+            fetchTasks();
         });
 
         return () => {
@@ -110,89 +145,289 @@ export default function TasksScreen() {
         };
     }, []);
 
-
-
     return (
-            <View style={styles.container}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'space-between', width: '100%', borderStyle: 'solid', borderColor: colors.borderColor, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                        <AvatarUi size={48} name={user?.name}></AvatarUi>
-                        <View style={{ alignItems: 'flex-start', flexDirection: 'column' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                                <Text>{user?.status ? user.status.charAt(0).toUpperCase() + user.status.slice(1) : ''}</Text>
-                                <IconStatus color={user?.status === 'online' ? 'green' : 'red'}></IconStatus>
-                            </View>
-                            <Text style={[typography.title, { fontSize: 16}]}>{ user?.name }</Text>
-                        </View>
-                    </View>
-
-
-                    <ToggleUi onValueChange={handleToggleStatus}
-                              value={user?.status === 'online'}
-                    ></ToggleUi>
-                </View>
-
-                <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-
-
-                {user?.status === 'online' ?
-                    <>
-                        {acceptedTask && user?.acceptedTask ?
-                            <>
-                                <Text style={[typography.title, { alignSelf: 'flex-start', marginTop: 16, marginBottom: 16, fontSize: 16}]}> Accepted Task</Text>
-                                <TaskCard task={acceptedTask} onCancel={() => handleCancelTask(acceptedTask!._id)}/>
-                            </>
-
-                            : null
-                        }
-
-
-                        {availableTasks.length ?
-                            <>
-
-                                <Text style={[typography.title, { alignSelf: 'flex-start', marginTop: 16, marginBottom: 16, fontSize: 16}]}> Available Tasks</Text>
-
-
-                                <View style={{gap: 24}}>
-                                    {availableTasks.map((task) => (
-                                        <TaskCard onAccept={() => handleAcceptTask(task._id)} key={task._id} task={task} />
-                                    ))}
-                                </View>
-
-
-                            </>
-
-                            : null
-                        }
-                    </>
-
-                    :
-
-                    <Text>Ви знаходитесь offline</Text>
+        <View style={styles.container}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.lightGreen]}
+                        tintColor={colors.lightGreen}
+                        title="Оновлення завдань..."
+                        titleColor={colors.lightGreen}
+                    />
                 }
+            >
+                <Animated.View
+                    style={[
+                        styles.statusCard,
+                        {
+                            opacity: fadeAnim,
+                            transform: [
+                                { translateY: slideAnim },
+                                { scale: statusScaleAnim },
+                            ],
+                        },
+                    ]}
+                >
+                    <View style={styles.statusHeader}>
+                        <View style={styles.userInfo}>
+                            <AvatarUi size={48} name={user?.name} />
+                            <View style={styles.userDetails}>
+                                <View style={styles.statusRow}>
+                                    <Text style={styles.statusText}>
+                                        {user?.status
+                                            ? user.status.charAt(0).toUpperCase() + user.status.slice(1)
+                                            : ''}
+                                    </Text>
+                                    <IconStatus color={user?.status === 'online' ? 'green' : 'red'} />
+                                </View>
+                                <Text style={styles.userName}>{user?.name}</Text>
+                            </View>
+                        </View>
+                        <ToggleUi
+                            onValueChange={handleToggleStatus}
+                            value={user?.status === 'online'}
+                        />
+                    </View>
+                </Animated.View>
 
-                </ScrollView>
+                <Animated.View
+                    style={[
+                        styles.tasksSection,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{
+                                translateY: slideAnim.interpolate({
+                                    inputRange: [0, 50],
+                                    outputRange: [0, 30],
+                                }),
+                            }],
+                        },
+                    ]}
+                >
+                    {error && (
+                        <View style={styles.errorContainer}>
+                            <Text style={styles.errorText}>{error}</Text>
+                            <ButtonUi
+                                title="Повторити"
+                                variant="outline"
+                                onPress={() => fetchTasks(true)}
+                                style={styles.retryButton}
+                            />
+                        </View>
+                    )}
 
+                    {loading ? (
+                        <View style={styles.loadingContainer}>
+                            <Text style={styles.loadingText}>Завантаження завдань...</Text>
+                        </View>
+                    ) : user?.status === 'online' ? (
+                        <>
+                            {acceptedTask && user?.acceptedTask && (
+                                <Animated.View
+                                    style={[
+                                        styles.taskGroup,
+                                        {
+                                            opacity: fadeAnim,
+                                            transform: [{
+                                                translateY: slideAnim.interpolate({
+                                                    inputRange: [0, 50],
+                                                    outputRange: [0, 20],
+                                                }),
+                                            }],
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.sectionTitle}>Прийняте завдання</Text>
+                                    <TaskCard
+                                        task={acceptedTask}
+                                        onCancel={() => handleCancelTask(acceptedTask._id)}
+                                    />
+                                </Animated.View>
+                            )}
 
+                            {availableTasks.length > 0 && (
+                                <Animated.View
+                                    style={[
+                                        styles.taskGroup,
+                                        {
+                                            opacity: fadeAnim,
+                                            transform: [{
+                                                translateY: slideAnim.interpolate({
+                                                    inputRange: [0, 50],
+                                                    outputRange: [0, 30],
+                                                }),
+                                            }],
+                                        },
+                                    ]}
+                                >
+                                    <Text style={styles.sectionTitle}>Доступні завдання</Text>
+                                    <View style={styles.tasksList}>
+                                        {availableTasks.map((task, index) => (
+                                            <Animated.View
+                                                key={task._id}
+                                                style={[
+                                                    styles.taskItem,
+                                                    {
+                                                        opacity: fadeAnim,
+                                                        transform: [{
+                                                            translateX: slideAnim.interpolate({
+                                                                inputRange: [0, 50],
+                                                                outputRange: [0, 10 + (index * 2)],
+                                                            }),
+                                                        }],
+                                                    },
+                                                ]}
+                                            >
+                                                <TaskCard
+                                                    onAccept={() => handleAcceptTask(task._id)}
+                                                    task={task}
+                                                />
+                                            </Animated.View>
+                                        ))}
+                                    </View>
+                                </Animated.View>
+                            )}
 
-
-
-
-            </View>
-
+                            {availableTasks.length === 0 && !acceptedTask && (
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyText}>Завдань поки немає</Text>
+                                    <Text style={styles.emptySubtext}>
+                                        Потягніть вниз, щоб оновити
+                                    </Text>
+                                </View>
+                            )}
+                        </>
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyText}>Ви знаходитесь offline</Text>
+                            <Text style={styles.emptySubtext}>
+                                Увімкніть статус онлайн, щоб бачити завдання
+                            </Text>
+                        </View>
+                    )}
+                </Animated.View>
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 16,
-        paddingHorizontal: 24,
-        alignItems: 'center',
-        justifyContent: 'flex-start',
         backgroundColor: colors.background,
     },
-
-
-
+    scrollContent: {
+        paddingTop: 16,
+        paddingHorizontal: 24,
+        paddingBottom: 120,
+    },
+    statusCard: {
+        width: '100%',
+        backgroundColor: colors.white,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
+    },
+    statusHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    userInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    userDetails: {
+        flexDirection: 'column',
+        gap: 4,
+    },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    statusText: {
+        fontSize: 14,
+        color: colors.noteColor,
+    },
+    userName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.black,
+    },
+    tasksSection: {
+        width: '100%',
+        gap: 20,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: colors.black,
+        marginBottom: 12,
+    },
+    taskGroup: {
+        width: '100%',
+        gap: 12,
+        marginBottom: 20,
+    },
+    tasksList: {
+        gap: 12,
+        width: '100%',
+    },
+    taskItem: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    errorContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+        gap: 16,
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#EF4444',
+        textAlign: 'center',
+    },
+    retryButton: {
+        minWidth: 120,
+    },
+    loadingContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    loadingText: {
+        fontSize: 16,
+        color: colors.noteColor,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 60,
+        gap: 8,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.black,
+        textAlign: 'center',
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: colors.noteColor,
+        textAlign: 'center',
+    },
 });

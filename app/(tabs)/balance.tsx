@@ -14,25 +14,48 @@ import { Transaction, TransactionType } from "@/models/transaction.model";
 import { useTransactionStore } from "@/store/transactionStore";
 import { useUserStore } from "@/store/userStore";
 import colors from "@/theme/colors";
-import typography from "@/theme/typography";
 import { formatBalance } from "@/utils/formatBalance";
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
-export default function BalanceScreen () {
+export default function BalanceScreen() {
     const { user } = useUserStore();
-    const {transactions, setTransactions} = useTransactionStore();
+    const { transactions, setTransactions } = useTransactionStore();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<null | string>(null);
     const [paymentHtml, setPaymentHtml] = useState<string | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [isDepositSheetVisible, setDepositSheetVisible] = useState(false);
     const [depositAmount, setDepositAmount] = useState('200');
+    const [refreshing, setRefreshing] = useState(false);
+    const [depositLoading, setDepositLoading] = useState(false);
 
-    const fetchTransactions = async () => {
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
+    const balanceScaleAnim = useRef(new Animated.Value(1)).current;
+
+    // Entry animation
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
+
+    const fetchTransactions = async (showLoader = false) => {
         try {
-            setLoading(true);
+            if (showLoader) setLoading(true);
             setError(null);
+            
             const res = await getTransactionsApi();
             if (res && Array.isArray(res)) {
                 setTransactions(res);
@@ -44,13 +67,37 @@ export default function BalanceScreen () {
         } catch (e) {
             console.error("Failed to fetch transactions:", e);
             setError("Failed to load transactions. Please try again.");
+            Alert.alert('Помилка', 'Не вдалося завантажити транзакції');
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     };
 
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchTransactions();
+            
+            // Balance refresh animation
+            Animated.sequence([
+                Animated.timing(balanceScaleAnim, {
+                    toValue: 1.05,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(balanceScaleAnim, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        } finally {
+            setRefreshing(false);
+        }
+    }, []);
+
     useEffect(() => {
-        fetchTransactions();
+        fetchTransactions(true);
     }, []);
 
     const getTransactionIcon = (type: TransactionType) => {
@@ -71,13 +118,13 @@ export default function BalanceScreen () {
     const getTransactionTitle = (type: TransactionType) => {
         switch (type) {
             case "commission":
-                return "Commission";
+                return "Комісія";
             case "deposit_card":
-                return "Deposit card";
+                return "Поповнення картою";
             case "deposit_task":
-                return "Deposit task";
+                return "Оплата завдання";
             case "withdraw":
-                return "Withdraw";
+                return "Виведення коштів";
             default:
                 return "";
         }
@@ -96,6 +143,7 @@ export default function BalanceScreen () {
 
     const deposit = async (amount: number) => {
         try {
+            setDepositLoading(true);
             const response = await topupWalletApi(user!._id, {
                 amount: amount,
                 type: "topup",
@@ -111,9 +159,6 @@ export default function BalanceScreen () {
                     const data = dataMatch[1];
                     const signature = signatureMatch[1];
                     
-                    console.log('LiqPay data:', data);
-                    console.log('LiqPay signature:', signature);
-                    
                     const url = `https://www.liqpay.ua/api/3/checkout?data=${encodeURIComponent(data)}&signature=${encodeURIComponent(signature)}`;
                     
                     setPaymentHtml(`
@@ -123,7 +168,7 @@ export default function BalanceScreen () {
                                 <meta name="viewport" content="width=device-width, initial-scale=1">
                                 <title>LiqPay Payment</title>
                             </head>
-                            <body style="margin: 0; padding: 20px; font-family: system-ui; text-align: center;">
+                            <body style="margin: 0; padding: 20px; font-family: system-ui; text-align: center; background: ${colors.background};">
                                 <div style="margin-top: 50px;">
                                     <h2 style="color: #333;">Оплата через LiqPay</h2>
                                     <p style="color: #666; margin: 20px 0;">Переходимо до сторінки оплати...</p>
@@ -162,16 +207,30 @@ export default function BalanceScreen () {
                 }
             } else {
                 console.warn("Unexpected response:", response);
+                Alert.alert('Помилка', 'Не вдалося створити платіж');
             }
             setDepositSheetVisible(false);
         } catch (error) {
             console.error("Deposit error:", error);
+            Alert.alert('Помилка', 'Не вдалося створити платіж');
+        } finally {
+            setDepositLoading(false);
         }
     };
 
     const formatDateHeader = (dateString: string) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        const isToday = date.toDateString() === today.toDateString();
+        const isYesterday = date.toDateString() === yesterday.toDateString();
+
+        if (isToday) return 'Сьогодні';
+        if (isYesterday) return 'Вчора';
+
+        return date.toLocaleDateString('uk-UA', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
@@ -187,7 +246,7 @@ export default function BalanceScreen () {
     const onWebViewNavigationStateChange = (navState: any) => {
         if (navState.url.includes('success') || navState.url.includes('callback')) {
             console.log('Payment completed, URL:', navState.url);
-            setTimeout(closePaymentModal, 2000); 
+            setTimeout(closePaymentModal, 2000);
         }
     };
 
@@ -197,151 +256,330 @@ export default function BalanceScreen () {
     );
 
     return (
-        <ScrollView>
-            <View style={styles.container}>
-                <View style={styles.balanceCard}>
-                    <Text style={[typography.title, {fontSize: 16}]}>Balance</Text>
+        <View style={styles.container}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.lightGreen]}
+                        tintColor={colors.lightGreen}
+                        title="Оновлення балансу..."
+                        titleColor={colors.lightGreen}
+                    />
+                }
+            >
+                <Animated.View 
+                    style={[
+                        styles.balanceCard,
+                        {
+                            opacity: fadeAnim,
+                            transform: [
+                                { translateY: slideAnim },
+                                { scale: balanceScaleAnim }
+                            ],
+                        },
+                    ]}
+                >
+                    <Text style={styles.balanceTitle}>Баланс</Text>
                     <View style={styles.balance}>
-                        <IconWalletSecondary/>
-                        <Text style={typography.title}>{formatBalance(user?.balance)} UAH</Text>
+                        <IconWalletSecondary />
+                        <Text style={styles.balanceAmount}>
+                            {formatBalance(user?.balance)} UAH
+                        </Text>
                     </View>
                     <View style={styles.buttons}>
-                        <ButtonUi onPress={() => {}} style={{ width: '50%'}} title={'Withdraw'} variant={'outline'}/>
-                        <ButtonUi onPress={() => setDepositSheetVisible(true)} style={{ width: '50%'}} title={'Deposit'} variant={'clear'}/>
+                        <ButtonUi 
+                            onPress={() => {
+                                Alert.alert('Інформація', 'Функція виведення коштів буде доступна незабаром');
+                            }} 
+                            style={styles.actionButton} 
+                            title={'Вивести'} 
+                            variant={'outline'}
+                        />
+                        <ButtonUi 
+                            onPress={() => setDepositSheetVisible(true)} 
+                            style={styles.actionButton} 
+                            title={'Поповнити'} 
+                            variant={'clear'}
+                        />
                     </View>
-                </View>
+                </Animated.View>
 
-                <View style={styles.transactions}>
-                    <Text style={[typography.title, {fontSize: 16}]}>Transactions</Text>
+                <Animated.View 
+                    style={[
+                        styles.transactions,
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ 
+                                translateY: slideAnim.interpolate({
+                                    inputRange: [0, 50],
+                                    outputRange: [0, 30],
+                                })
+                            }],
+                        },
+                    ]}
+                >
+                    <Text style={styles.transactionsTitle}>Транзакції</Text>
                     
-                    {sortedDates.map((date) => (
-                        <View key={date} style={styles.dateGroup}>
-                            <Text style={[typography.subtitle, styles.dateHeader]}>
-                                {formatDateHeader(date)}
-                            </Text>
-                            <View style={styles.transactionsList}>
-                                {groupedTransactions[date].map((transaction, index) => (
-                                    <TransactionItem
-                                        key={`${date}-${index}`}
-                                        icon={getTransactionIcon(transaction.type)}
-                                        title={getTransactionTitle(transaction.type)}
-                                        subtitle={transaction.description!}
-                                        amount={transaction.amount}
-                                        date={transaction.date}
-                                    />
-                                ))}
-                            </View>
+                    {error && (
+                        <View style={styles.errorContainer}>
+                            <Text style={styles.errorText}>{error}</Text>
+                            <ButtonUi 
+                                title="Повторити" 
+                                variant="outline" 
+                                onPress={() => fetchTransactions(true)}
+                                style={styles.retryButton}
+                            />
                         </View>
-                    ))}
-                </View>
-            </View>
+                    )}
+                    
+                    {loading ? (
+                        <View style={styles.loadingContainer}>
+                            <Text style={styles.loadingText}>Завантаження транзакцій...</Text>
+                        </View>
+                    ) : sortedDates.length > 0 ? (
+                        sortedDates.map((date, dateIndex) => (
+                            <Animated.View 
+                                key={date} 
+                                style={[
+                                    styles.dateGroup,
+                                    {
+                                        opacity: fadeAnim,
+                                        transform: [{
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 50],
+                                                outputRange: [0, 20 + (dateIndex * 5)],
+                                            })
+                                        }],
+                                    },
+                                ]}
+                            >
+                                <Text style={styles.dateHeader}>
+                                    {formatDateHeader(date)}
+                                </Text>
+                                <View style={styles.transactionsList}>
+                                    {groupedTransactions[date].map((transaction, index) => (
+                                        <Animated.View
+                                            key={`${date}-${index}`}
+                                            style={[
+                                                styles.transactionItem,
+                                                {
+                                                    opacity: fadeAnim,
+                                                    transform: [{
+                                                        translateX: slideAnim.interpolate({
+                                                            inputRange: [0, 50],
+                                                            outputRange: [0, 10 + (index * 2)],
+                                                        })
+                                                    }],
+                                                },
+                                            ]}
+                                        >
+                                            <TransactionItem
+                                                icon={getTransactionIcon(transaction.type)}
+                                                title={getTransactionTitle(transaction.type)}
+                                                subtitle={transaction.description!}
+                                                amount={transaction.amount}
+                                                date={transaction.date}
+                                            />
+                                        </Animated.View>
+                                    ))}
+                                </View>
+                            </Animated.View>
+                        ))
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyText}>Транзакцій поки немає</Text>
+                            <Text style={styles.emptySubtext}>
+                                Потягніть вниз, щоб оновити
+                            </Text>
+                        </View>
+                    )}
+                </Animated.View>
+            </ScrollView>
 
             <BottomSheet
-        visible={isDepositSheetVisible}
-        onClose={() => setDepositSheetVisible(false)}
-        height={250}
-      >
-        <View style={styles.content}>
-          <InputUi
-            value={depositAmount}
-            onChangeText={setDepositAmount}
-            placeholder="Enter deposit amount"
-            type="text"
-            style={{ marginBottom: 20 }}
-          />
-          <ButtonUi
-            title="Поповнити"
-            onPress={() => {
-              const amountNum = Number(depositAmount);
-              if (isNaN(amountNum) || amountNum <= 0) {
-                alert("Введіть коректну суму");
-                return;
-              }
-              deposit(amountNum);
-            }}
-          />
-        </View>
-      </BottomSheet>
+                visible={isDepositSheetVisible}
+                onClose={() => setDepositSheetVisible(false)}
+                height={350}
+            >
+                <View style={styles.depositContent}>
+                    <Text style={styles.depositTitle}>Поповнення балансу</Text>
+                    <InputUi
+                        value={depositAmount}
+                        onChangeText={setDepositAmount}
+                        placeholder="Введіть суму"
+                        type="text"
+                        style={styles.depositInput}
+                    />
+                    <Text style={styles.depositHint}>
+                        Мінімальна сума поповнення: 50 UAH
+                    </Text>
+                    <ButtonUi
+                        title="Поповнити"
+                        onPress={() => {
+                            const amountNum = Number(depositAmount);
+                            if (isNaN(amountNum) || amountNum < 50) {
+                                Alert.alert("Помилка", "Введіть коректну суму (мінімум 50 UAH)");
+                                return;
+                            }
+                            deposit(amountNum);
+                        }}
+                        loading={depositLoading}
+                        disabled={depositLoading}
+                    />
+                </View>
+            </BottomSheet>
 
-        <PaymentModal
-      visible={showPaymentModal}
-      htmlContent={paymentHtml}
-      onClose={closePaymentModal}
-      onNavigationStateChange={onWebViewNavigationStateChange}
-    />
-        </ScrollView>
+            <PaymentModal
+                visible={showPaymentModal}
+                htmlContent={paymentHtml}
+                onClose={closePaymentModal}
+                onNavigationStateChange={onWebViewNavigationStateChange}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: colors.background,
+    },
+    scrollContent: {
         paddingTop: 16,
         paddingHorizontal: 24,
-        paddingBottom: 100,
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        backgroundColor: colors.background,
+        paddingBottom: 120,
     },
     balanceCard: {
         width: '100%',
         backgroundColor: colors.white,
-        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)',
-        borderRadius: 16,
-        padding: 16,
-        gap: 16
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 5,
+        borderRadius: 20,
+        padding: 20,
+        gap: 20,
+        marginBottom: 24,
+    },
+    balanceTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.black,
     },
     balance: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16
+        gap: 16,
+    },
+    balanceAmount: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: colors.black,
     },
     buttons: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
-        paddingTop: 16,
+        paddingTop: 20,
         borderTopWidth: 1,
         borderColor: colors.borderColor,
     },
+    actionButton: {
+        flex: 1,
+    },
     transactions: {
-        marginTop: 24,
         width: '100%',
-        gap: 16,
+        gap: 20,
+    },
+    transactionsTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: colors.black,
     },
     dateGroup: {
         width: '100%',
         gap: 12,
+        marginBottom: 20,
     },
     dateHeader: {
-        marginBottom: 8,
+        fontSize: 16,
+        fontWeight: '500',
         color: colors.noteColor,
+        marginBottom: 8,
     },
     transactionsList: {
-        gap: 16,
+        gap: 12,
         width: '100%',
     },
-    modalContainer: {
-        flex: 1,
+    transactionItem: {
         backgroundColor: colors.white,
+        borderRadius: 12,
+        overflow: 'hidden',
     },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    errorContainer: {
         alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.borderColor,
+        paddingVertical: 40,
+        gap: 16,
     },
-    closeButton: {
-        width: 80,
+    errorText: {
+        fontSize: 16,
+        color: '#EF4444',
+        textAlign: 'center',
     },
-    webview: {
+    retryButton: {
+        minWidth: 120,
+    },
+    loadingContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    loadingText: {
+        fontSize: 16,
+        color: colors.noteColor,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 60,
+        gap: 8,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.black,
+        textAlign: 'center',
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: colors.noteColor,
+        textAlign: 'center',
+    },
+    depositContent: {
         flex: 1,
+        paddingHorizontal: 24,
+        paddingTop: 20,
+        gap: 20,
     },
-    content: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
+    depositTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: colors.black,
+        textAlign: 'center',
+    },
+    depositInput: {
+        marginBottom: 8,
+    },
+    depositHint: {
+        fontSize: 14,
+        color: colors.noteColor,
+        textAlign: 'center',
+        marginBottom: 16,
+    },
 });

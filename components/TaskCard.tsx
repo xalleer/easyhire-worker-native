@@ -1,95 +1,134 @@
-import { StyleSheet, Text, View } from "react-native";
 import IconCreditCard from "@/assets/icons/IconCreditCard";
-import { Image } from "expo-image";
-import AvatarUi from "@/components/ui/AvatarUi";
-import typography from "@/theme/typography";
 import IconStarSecondary from "@/assets/icons/IconStarSecondary";
-import ButtonUi from "@/components/ui/ButtonUi";
-import colors from "@/theme/colors";
-import { Task } from "@/models/task.model";
-import { useState } from "react";
-
 import TaskDetailModal from "@/components/modals/TaskDetailModal";
+import AvatarUi from "@/components/ui/AvatarUi";
+import ButtonUi from "@/components/ui/ButtonUi";
+import { Task } from "@/models/task.model";
+import colors from "@/theme/colors";
+import { Image } from "expo-image";
+import { useEffect, useRef, useState } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
+import * as Progress from 'react-native-progress';
 
 type Props = {
-    task: Task;
+    task: Task & { status?: string }; // Assuming status is optional and can be "pending", "in_progress", or "completed"
     onAccept?: () => Promise<void>;
     onCancel?: () => Promise<void>;
 };
 
 export default function TaskCard({ task, onAccept, onCancel }: Props) {
     const [open, setOpen] = useState(false);
+    
+    // Animation refs
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(20)).current;
+
+    // Entry animation
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
+
+    // Determine progress based on task status
+    const getProgress = () => {
+        switch (task.status?.toLowerCase()) {
+            case "pending":
+                return 0.3;
+            case "in_progress":
+                return 0.6;
+            case "completed":
+                return 1.0;
+            default:
+                return 0.0;
+        }
+    };
 
     return (
         <>
-                <View style={styles.card}>
-                    <View style={styles.chip}>
-                        <IconCreditCard />
-                        <Text>{task.price}</Text>
-                        <Image
-                            style={{ width: 16, height: 16 }}
-                            source={require("../assets/icons/icon-uah.png")}
-                        />
-                    </View>
-                    <View style={styles.cardHeader}>
-                        <AvatarUi size={48} name={task.employer.name} />
-                        <View
-                            style={{
-                                flexDirection: "column",
-                                alignItems: "flex-start",
-                                gap: 4,
-                                justifyContent: "center",
-                            }}
-                        >
-                            <Text style={[typography.title, { fontSize: 16 }]}>
-                                {task.employer.name}
-                            </Text>
-                            <View
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    justifyContent: "center",
-                                }}
-                            >
-                                <IconStarSecondary />
-                                <Text>{task.employer.rating.toFixed(2)}</Text>
-                            </View>
+            <Animated.View
+                style={[
+                    styles.card,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                    },
+                ]}
+            >
+                <View style={styles.chip}>
+                    <IconCreditCard />
+                    <Text style={styles.chipText}>{task.price}</Text>
+                    <Image
+                        style={styles.currencyIcon}
+                        source={require("../assets/icons/icon-uah.png")}
+                    />
+                </View>
+                <View style={styles.cardHeader}>
+                    <AvatarUi size={48} name={task.employer.name} />
+                    <View style={styles.employerInfo}>
+                        <Text style={styles.employerName}>{task.employer.name}</Text>
+                        <View style={styles.ratingRow}>
+                            <IconStarSecondary />
+                            <Text style={styles.ratingText}>{task.employer.rating.toFixed(2)}</Text>
                         </View>
                     </View>
+                </View>
 
-                    <View style={styles.cardContent}>
-                        <Text style={typography.title}>{task.title}</Text>
-                        <Text style={[typography.subtitle, { width: "80%" }]}>
-                            {task.description}
+                <View style={styles.cardContent}>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    <Text style={styles.taskDescription}>{task.description}</Text>
+                    <View style={styles.progressContainer}>
+                        <Text style={styles.progressLabel}>
+                            {task.status
+                                ? task.status.charAt(0).toUpperCase() + task.status.slice(1)
+                                : "Unknown"}
                         </Text>
-                    </View>
-
-                    <View style={styles.cardFooter}>
-                        {onAccept ? (
-                            <ButtonUi
-                                style={{ width: "50%" }}
-                                title={"Accept"}
-                                variant={"outline"}
-                                onPress={onAccept}
-                            />
-                        ) : null}
-                        {onCancel ? (
-                            <ButtonUi
-                                style={{ width: "50%" }}
-                                title={"Cancel"}
-                                variant={"outline"}
-                                onPress={onCancel}
-                            />
-                        ) : null}
-                        <ButtonUi
-                            style={{ width: "50%" }}
-                            title={"View Detail"}
-                            variant={"clear"}
-                            onPress={() => setOpen(true)}
-                        />
+                        <Progress.Bar
+  progress={getProgress()}
+  width={null} 
+  color={colors.lightGreen}
+  unfilledColor={colors.borderColor}
+  borderWidth={0}
+  height={8}
+  borderRadius={4}
+/>
                     </View>
                 </View>
+
+                <View style={styles.cardFooter}>
+                    {onAccept && (
+                        <ButtonUi
+                            style={styles.actionButton}
+                            title="Accept"
+                            variant="outline"
+                            onPress={onAccept}
+                        />
+                    )}
+                    {onCancel && (
+                        <ButtonUi
+                            style={styles.actionButton}
+                            title="Cancel"
+                            variant="outline"
+                            onPress={onCancel}
+                        />
+                    )}
+                    <ButtonUi
+                        style={styles.actionButton}
+                        title="View Detail"
+                        variant="clear"
+                        onPress={() => setOpen(true)}
+                    />
+                </View>
+            </Animated.View>
 
             <TaskDetailModal
                 task={task}
@@ -103,52 +142,103 @@ export default function TaskCard({ task, onAccept, onCancel }: Props) {
 }
 
 const styles = StyleSheet.create({
+    card: {
+        width: '100%',
+        backgroundColor: colors.white,
+        shadowColor: '#000',
+       
+        borderColor: colors.borderColor,
+        borderStyle: 'solid',
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 20,
+        gap: 12,
+    },
     chip: {
-        position: "absolute",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
+        position: 'absolute',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
         right: 16,
         top: 16,
-        borderStyle: "solid",
-        borderColor: colors.black,
-        borderWidth: 1,
         backgroundColor: colors.chipPrimary,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
         borderRadius: 16,
-    },
-    card: {
-        borderStyle: "solid",
-        borderColor: colors.borderColor,
         borderWidth: 1,
-        padding: 16,
-        borderRadius: 16,
-        width: "100%",
-        gap: 8,
+        borderColor: colors.borderColor,
+    },
+    chipText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.black,
+    },
+    currencyIcon: {
+        width: 16,
+        height: 16,
     },
     cardHeader: {
-        flexDirection: "row",
-        alignItems: "center",
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 16,
     },
+    employerInfo: {
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 6,
+    },
+    employerName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.black,
+    },
+    ratingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    ratingText: {
+        fontSize: 14,
+        color: colors.noteColor,
+    },
     cardContent: {
-        marginVertical: 16,
+        marginVertical: 12,
+        gap: 8,
+    },
+    taskTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.black,
+    },
+    taskDescription: {
+        fontSize: 14,
+        color: colors.noteColor,
+        lineHeight: 20,
+    },
+    progressContainer: {
+        marginTop: 8,
+        gap: 8,
+    },
+    progressLabel: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: colors.noteColor,
+    },
+    progressBar: {
+        width: '100%',
+        height: 8,
+        borderRadius: 4,
     },
     cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingTop: 16,
-        paddingBottom: 8,
-        borderStyle: "solid",
-        borderColor: colors.borderColor,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
         borderTopWidth: 1,
+        borderColor: colors.borderColor,
+        gap: 12,
     },
-    infoRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginTop: 8,
+    actionButton: {
+        flex: 1,
     },
 });
