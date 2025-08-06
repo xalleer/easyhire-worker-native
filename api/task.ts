@@ -1,5 +1,5 @@
+import { Task, TaskByCityRequest } from "@/models/task.model";
 import api from "@/services/api";
-import {Task, TaskByCityRequest} from "@/models/task.model";
 
 export const getTasksByCityApi = async (body: TaskByCityRequest): Promise<Task[]> => {
     const response = await api.post(`/tasks/tasks-city`, body);
@@ -14,4 +14,9 @@ export const acceptTaskApi = async (taskId: string, workerId: string): Promise<T
 export const declineTaskApi = async (taskId: string, userId: string): Promise<Task> => {
     const response = await api.put(`/tasks/decline?taskId=${taskId}&userId=${userId}&userRole=worker`);
     return response.data;
+}
+
+export const getTaskByIdApi = async (taskId: string): Promise<Task> => {
+    const response = await api.get(`/tasks/?taskId=${taskId}`)
+    return response.data
 }

@@ -19,7 +19,6 @@ type Props = {
 export default function TaskCard({ task, onAccept, onCancel }: Props) {
     const [open, setOpen] = useState(false);
     
-    // Animation refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -39,15 +38,16 @@ export default function TaskCard({ task, onAccept, onCancel }: Props) {
         ]).start();
     }, []);
 
-    // Determine progress based on task status
     const getProgress = () => {
         switch (task.status?.toLowerCase()) {
-            case "pending":
+            case "waiting-for-hiring":
                 return 0.3;
-            case "in_progress":
-                return 0.6;
-            case "completed":
-                return 1.0;
+            case "in-progress":
+                return 0.4;
+            case "submitted":
+                return 0.8;
+            case "completted":
+                return 1;
             default:
                 return 0.0;
         }

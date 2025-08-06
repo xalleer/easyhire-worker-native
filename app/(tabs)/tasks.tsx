@@ -1,5 +1,5 @@
-import { acceptTaskApi, declineTaskApi, getTasksByCityApi } from "@/api/task";
-import { changeStatusApi } from "@/api/user";
+import { acceptTaskApi, declineTaskApi, getTaskByIdApi, getTasksByCityApi } from "@/api/task";
+import { changeStatusApi, getMeApi } from "@/api/user";
 import IconStatus from "@/assets/icons/IconStatus";
 import TaskCard from "@/components/TaskCard";
 import AvatarUi from "@/components/ui/AvatarUi";
@@ -12,9 +12,14 @@ import { useTaskStore } from "@/store/taskStore";
 import { useUserStore } from "@/store/userStore";
 import colors from "@/theme/colors";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Animated, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Animated, LayoutAnimation, Platform, RefreshControl, StyleSheet, Text, UIManager, View } from "react-native";
 import ScrollView = Animated.ScrollView;
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function TasksScreen() {
     const { user, setUser } = useUserStore();
@@ -23,15 +28,24 @@ export default function TasksScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<null | string>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [acceptedTaskLoading, setAcceptedTaskLoading] = useState(false);
+    const [acceptedTaskError, setAcceptedTaskError] = useState<null | string>(null);
 
-    // Animation refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const statusScaleAnim = useRef(new Animated.Value(1)).current;
 
     useSocket(user!._id);
 
-    // Entry animation
+    const refreshUserData = async () => {
+        try {
+            const updatedUser = await getMeApi();
+            setUser(updatedUser);
+        } catch (error) {
+            console.error('Failed to refresh user data:', error);
+        }
+    };
+
     useEffect(() => {
         Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -54,6 +68,13 @@ export default function TasksScreen() {
             if (showLoader) setLoading(true);
             setError(null);
             const tasks = await getTasksByCityApi({ city: user.cities[0] });
+            LayoutAnimation.configureNext(
+                LayoutAnimation.create(
+                    300,
+                    LayoutAnimation.Types.easeInEaseOut,
+                    LayoutAnimation.Properties.opacity
+                )
+            );
             setAvailableTasks(tasks);
         } catch (error) {
             console.error("Failed to fetch tasks:", error);
@@ -63,11 +84,44 @@ export default function TasksScreen() {
             if (showLoader) setLoading(false);
         }
     };
+    
+
+    const fetchAcceptedTask = async (taskId: string) => {
+        try {
+            setAcceptedTaskLoading(true);
+            setAcceptedTaskError(null);
+            const task = await getTaskByIdApi(taskId);
+            LayoutAnimation.configureNext(
+                LayoutAnimation.create(
+                    300,
+                    LayoutAnimation.Types.easeInEaseOut,
+                    LayoutAnimation.Properties.opacity
+                )
+            );
+            setAcceptedTask(task);
+        } catch (error) {
+            console.error("Error fetching accepted task:", error);
+            setAcceptedTaskError("Failed to load accepted task details. Please try again.");
+            Alert.alert('Помилка', 'Не вдалося завантажити прийняте завдання');
+        } finally {
+            setAcceptedTaskLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!acceptedTask && user?.acceptedTask) {
+            fetchAcceptedTask(user.acceptedTask);
+        }
+    }, [user?.acceptedTask]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
+            await refreshUserData();
             await fetchTasks();
+            if (user?.acceptedTask) {
+                await fetchAcceptedTask(user.acceptedTask);
+            }
             Animated.sequence([
                 Animated.timing(statusScaleAnim, {
                     toValue: 1.05,
@@ -83,18 +137,29 @@ export default function TasksScreen() {
         } finally {
             setRefreshing(false);
         }
-    }, []);
+    }, [user?.acceptedTask]);
 
     useFocusEffect(
         useCallback(() => {
             fetchTasks(true);
-        }, [token, user?.cities])
+            if (user?.acceptedTask) {
+                fetchAcceptedTask(user.acceptedTask);
+            }
+        }, [token, user?.cities, user?.acceptedTask])
     );
 
     const handleToggleStatus = async (value: boolean) => {
         try {
+            await refreshUserData();
             const newStatus = value ? 'online' : 'offline';
             const updatedUser = await changeStatusApi({ status: newStatus });
+            LayoutAnimation.configureNext(
+                LayoutAnimation.create(
+                    300,
+                    LayoutAnimation.Types.easeInEaseOut,
+                    LayoutAnimation.Properties.opacity
+                )
+            );
             setUser(updatedUser);
         } catch (error) {
             console.error('Failed to change status:', error);
@@ -104,14 +169,25 @@ export default function TasksScreen() {
 
     const handleAcceptTask = async (taskId: string) => {
         try {
-            
             if (!user?._id) return;
-            
+            if (user.acceptedTask) {
+                Alert.alert('Помилка', 'Ви вже маєте прийняте завдання!');
+                return;
+            }
+
             const res = await acceptTaskApi(taskId, user._id);
             if (res) {
+                LayoutAnimation.configureNext(
+                    LayoutAnimation.create(
+                        300,
+                        LayoutAnimation.Types.easeInEaseOut,
+                        LayoutAnimation.Properties.opacity
+                    )
+                );
                 const updatedTasks = availableTasks.filter((task) => task._id !== taskId);
                 setAvailableTasks(updatedTasks);
                 setAcceptedTask(res);
+                await refreshUserData();
             }
         } catch (error) {
             console.error("Error accepting task:", error);
@@ -124,9 +200,17 @@ export default function TasksScreen() {
             if (!user?._id || !user?.cities) return;
             const res = await declineTaskApi(taskId, user._id);
             if (res) {
+                LayoutAnimation.configureNext(
+                    LayoutAnimation.create(
+                        300,
+                        LayoutAnimation.Types.easeInEaseOut,
+                        LayoutAnimation.Properties.opacity
+                    )
+                );
                 setAcceptedTask(null);
                 const updatedTasks = await getTasksByCityApi({ city: user.cities[0] });
                 setAvailableTasks(updatedTasks);
+                await refreshUserData();
             }
         } catch (error) {
             console.error("Error canceling task:", error);
@@ -145,6 +229,52 @@ export default function TasksScreen() {
         };
     }, []);
 
+    
+
+    // Memoize task list to prevent unnecessary re-renders
+    const renderTasks = useMemo(() => (
+        <>
+            {availableTasks.length > 0 && (
+                <Animated.View
+                    style={{
+                        ...styles.taskGroup,
+                        opacity: fadeAnim,
+                        transform: [{
+                            translateY: slideAnim.interpolate({
+                                inputRange: [0, 50],
+                                outputRange: [0, 30],
+                            }),
+                        }],
+                    }}
+                >
+                    <Text style={styles.sectionTitle}>Доступні завдання</Text>
+                    <View style={styles.tasksList}>
+                        {availableTasks.map((task, index) => (
+                            <Animated.View
+                                key={task._id}
+                                style={{
+                                    ...styles.taskItem,
+                                    opacity: fadeAnim,
+                                    transform: [{
+                                        translateX: slideAnim.interpolate({
+                                            inputRange: [0, 50],
+                                            outputRange: [0, 10 + (index * 5)],
+                                        }),
+                                    }],
+                                }}
+                            >
+                                <TaskCard
+                                    onAccept={() => handleAcceptTask(task._id)}
+                                    task={task}
+                                />
+                            </Animated.View>
+                        ))}
+                    </View>
+                </Animated.View>
+            )}
+        </>
+    ), [availableTasks, fadeAnim, slideAnim]);
+
     return (
         <View style={styles.container}>
             <ScrollView
@@ -162,16 +292,14 @@ export default function TasksScreen() {
                 }
             >
                 <Animated.View
-                    style={[
-                        styles.statusCard,
-                        {
-                            opacity: fadeAnim,
-                            transform: [
-                                { translateY: slideAnim },
-                                { scale: statusScaleAnim },
-                            ],
-                        },
-                    ]}
+                    style={{
+                        ...styles.statusCard,
+                        opacity: fadeAnim,
+                        transform: [
+                            { translateY: slideAnim },
+                            { scale: statusScaleAnim },
+                        ],
+                    }}
                 >
                     <View style={styles.statusHeader}>
                         <View style={styles.userInfo}>
@@ -196,18 +324,16 @@ export default function TasksScreen() {
                 </Animated.View>
 
                 <Animated.View
-                    style={[
-                        styles.tasksSection,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{
-                                translateY: slideAnim.interpolate({
-                                    inputRange: [0, 50],
-                                    outputRange: [0, 30],
-                                }),
-                            }],
-                        },
-                    ]}
+                    style={{
+                        ...styles.tasksSection,
+                        opacity: fadeAnim,
+                        transform: [{
+                            translateY: slideAnim.interpolate({
+                                inputRange: [0, 50],
+                                outputRange: [0, 30],
+                            }),
+                        }],
+                    }}
                 >
                     {error && (
                         <View style={styles.errorContainer}>
@@ -227,20 +353,34 @@ export default function TasksScreen() {
                         </View>
                     ) : user?.status === 'online' ? (
                         <>
-                            {acceptedTask && user?.acceptedTask && (
+                            {acceptedTaskError && (
+                                <View style={styles.errorContainer}>
+                                    <Text style={styles.errorText}>{acceptedTaskError}</Text>
+                                    <ButtonUi
+                                        title="Повторити"
+                                        variant="outline"
+                                        onPress={() => user?.acceptedTask && fetchAcceptedTask(user.acceptedTask)}
+                                        style={styles.retryButton}
+                                    />
+                                </View>
+                            )}
+
+                            {acceptedTaskLoading ? (
+                                <View style={styles.loadingContainer}>
+                                    <Text style={styles.loadingText}>Завантаження прийнятого завдання...</Text>
+                                </View>
+                            ) : acceptedTask && user?.acceptedTask ? (
                                 <Animated.View
-                                    style={[
-                                        styles.taskGroup,
-                                        {
-                                            opacity: fadeAnim,
-                                            transform: [{
-                                                translateY: slideAnim.interpolate({
-                                                    inputRange: [0, 50],
-                                                    outputRange: [0, 20],
-                                                }),
-                                            }],
-                                        },
-                                    ]}
+                                    style={{
+                                        ...styles.taskGroup,
+                                        opacity: fadeAnim,
+                                        transform: [{
+                                            translateY: slideAnim.interpolate({
+                                                inputRange: [0, 50],
+                                                outputRange: [0, 20],
+                                            }),
+                                        }],
+                                    }}
                                 >
                                     <Text style={styles.sectionTitle}>Прийняте завдання</Text>
                                     <TaskCard
@@ -248,52 +388,11 @@ export default function TasksScreen() {
                                         onCancel={() => handleCancelTask(acceptedTask._id)}
                                     />
                                 </Animated.View>
-                            )}
+                            ) : null}
 
-                            {availableTasks.length > 0 && (
-                                <Animated.View
-                                    style={[
-                                        styles.taskGroup,
-                                        {
-                                            opacity: fadeAnim,
-                                            transform: [{
-                                                translateY: slideAnim.interpolate({
-                                                    inputRange: [0, 50],
-                                                    outputRange: [0, 30],
-                                                }),
-                                            }],
-                                        },
-                                    ]}
-                                >
-                                    <Text style={styles.sectionTitle}>Доступні завдання</Text>
-                                    <View style={styles.tasksList}>
-                                        {availableTasks.map((task, index) => (
-                                            <Animated.View
-                                                key={task._id}
-                                                style={[
-                                                    styles.taskItem,
-                                                    {
-                                                        opacity: fadeAnim,
-                                                        transform: [{
-                                                            translateX: slideAnim.interpolate({
-                                                                inputRange: [0, 50],
-                                                                outputRange: [0, 10 + (index * 2)],
-                                                            }),
-                                                        }],
-                                                    },
-                                                ]}
-                                            >
-                                                <TaskCard
-                                                    onAccept={() => handleAcceptTask(task._id)}
-                                                    task={task}
-                                                />
-                                            </Animated.View>
-                                        ))}
-                                    </View>
-                                </Animated.View>
-                            )}
+                            {renderTasks}
 
-                            {availableTasks.length === 0 && !acceptedTask && (
+                            {availableTasks.length === 0 && !acceptedTask && !acceptedTaskLoading && !acceptedTaskError && (
                                 <View style={styles.emptyState}>
                                     <Text style={styles.emptyText}>Завдань поки немає</Text>
                                     <Text style={styles.emptySubtext}>

@@ -1,5 +1,5 @@
+import { disconnectSocket, initializeSocket, updateUserId } from '@/services/socket';
 import { useEffect } from 'react';
-import { initializeSocket, disconnectSocket, updateUserId } from '@/services/socket';
 
 export const useSocket = (userId: string | null) => {
     useEffect(() => {
